@@ -1,0 +1,6 @@
+[submodule "tools/QCP"]
+	path = tools/QCP
+	url = https://github.com/QinxiangCao/QualifiedCProgramming.git
+[submodule "tools/LKV"]
+	path = tools/LKV
+	url = https://github.com/facebookresearch/lean_kernel_verify.git
