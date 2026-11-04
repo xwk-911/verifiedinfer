@@ -4,3 +4,6 @@ Vosti/
 DeepInfer/
 
 AGENTS.md
+
+# Local C build artifacts
+/build/
