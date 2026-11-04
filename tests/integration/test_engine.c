@@ -165,6 +165,34 @@ static void test_model_contract_violation(void)
     CHECK(vi_engine_step(&engine, &output) == VI_MODEL_ERROR);
 }
 
+static vi_status fatal_model_error(void *model, const vi_model_input *input,
+                                    float *logits, size_t vocab_size)
+{
+    (void)input;
+    (void)vocab_size;
+    size_t *calls = model;
+    ++*calls;
+    logits[0] = 123; /* Scratch may change, published output must not. */
+    return VI_MODEL_ERROR;
+}
+
+static void test_fatal_model_error_is_terminal(void)
+{
+    size_t calls = 0;
+    vi_model_runner runner = {.model = &calls, .forward = fatal_model_error, .vocab_size = 8};
+    vi_token history[2];
+    const vi_token prompt[] = {1};
+    float work[8], logits[8] = {42};
+    vi_engine engine;
+    vi_output output = {.logits = logits, .logits_capacity = 8, .token = 99};
+    CHECK(vi_engine_init(&engine, runner, history, 2, work, 8, prompt, 1,
+                        (vi_request_config){.max_new_tokens = 1}) == VI_OK);
+    CHECK(vi_engine_step(&engine, &output) == VI_MODEL_ERROR);
+    CHECK(engine.request.phase == VI_FAILED && engine.request.kv_len == 0);
+    CHECK(logits[0] == 42 && output.token == 99);
+    CHECK(vi_engine_step(&engine, &output) == VI_MODEL_ERROR && calls == 1);
+}
+
 int main(void)
 {
     test_prefill_decode_and_finish();
@@ -172,6 +200,7 @@ int main(void)
     test_eos_and_sampling_state();
     test_initialization_and_model_failure();
     test_model_contract_violation();
+    test_fatal_model_error_is_terminal();
     puts("PASS: request lifecycle, KV prefix, sampling and failures");
     return 0;
 }

@@ -17,6 +17,12 @@ typedef struct {
     uint32_t initial_sampler_state;
     bool stop_on_eos;
     vi_token eos_token;
+    /* Optional additional stopping policy (e.g. multiple EOS IDs from HF).
+     * Read-only borrowed array, disjoint from writable history/state and valid
+     * for the whole request; independent of
+     * the single-EOS switch above. An emitted stop token remains in history. */
+    const vi_token *stop_token_ids;
+    size_t stop_token_count;
 } vi_request_config;
 
 typedef struct {

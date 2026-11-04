@@ -38,10 +38,29 @@ static void test_invalid_commit_is_atomic(void)
     CHECK(storage[1] == 92 && request.sampler_state == 7);
 }
 
+static void test_multiple_stop_tokens(void)
+{
+    vi_token history[3];
+    const vi_token prompt[] = {1}, stops[] = {3, 5};
+    vi_request request;
+    vi_request_config config = {.max_new_tokens = 2, .stop_token_ids = stops, .stop_token_count = 2};
+    CHECK(vi_request_init(&request, history, 3, prompt, 1, 8, config) == VI_OK);
+    CHECK(vi_request_commit(&request, 5, 7) == VI_OK);
+    CHECK(request.phase == VI_FINISHED && history[1] == 5 && request.kv_len == 1);
+    config.stop_token_ids = NULL;
+    CHECK(vi_request_init(&request, history, 3, prompt, 1, 8, config) == VI_INVALID);
+    CHECK(request.phase == VI_FINISHED && history[1] == 5);
+    const vi_token invalid[] = {8};
+    config.stop_token_ids = invalid;
+    config.stop_token_count = 1;
+    CHECK(vi_request_init(&request, history, 3, prompt, 1, 8, config) == VI_INVALID);
+}
+
 int main(void)
 {
     test_request_transitions();
     test_invalid_commit_is_atomic();
+    test_multiple_stop_tokens();
     puts("PASS: request transitions, immutable policy and invalid commit");
     return 0;
 }

@@ -7,3 +7,8 @@ AGENTS.md
 
 # Local C build artifacts
 /build/
+/.venv/
+/models/
+__pycache__/
+/compile_commands.json
+/compile_commands.json.tmp

@@ -5,7 +5,7 @@
 
 #include "verifiedinfer/engine/engine.h"
 #include "support/check.h"
-#include "tiny_dense_weights.h"
+#include "support/tiny_dense_weights.h"
 
 /* Independent cold full-prefix reference: materialize all Q/K/V rows and the
  * causal score matrix before evaluating attention and the FFN. This does not

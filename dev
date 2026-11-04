@@ -1,0 +1,15 @@
+#!/bin/bash
+# Project-local Docker Compose entry. Preserve host paths and file ownership.
+set -euo pipefail
+project_root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+export WORKSPACE="$project_root"
+export HOST_UID="$(id -u)" HOST_GID="$(id -g)"
+compose_args=(--project-directory "$project_root" -f "$project_root/compose.yaml")
+if [[ -r /sys/module/nvidia/version ]]; then
+    driver_version=$(cat /sys/module/nvidia/version)
+    if [[ -r "$project_root/build/nvidia-compat/$driver_version/libcuda.so.1" ]]; then
+        compose_args+=(-f "$project_root/docker/compose.driver-compat.yaml")
+    fi
+fi
+cd "$project_root"
+exec docker compose "${compose_args[@]}" "$@"

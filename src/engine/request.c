@@ -2,6 +2,24 @@
 
 #include <string.h>
 
+static int stopping_policy_valid(vi_request_config config, size_t vocab_size)
+{
+    if ((config.stop_on_eos && config.eos_token >= vocab_size) ||
+        config.stop_token_count > SIZE_MAX / sizeof(vi_token) ||
+        (config.stop_token_count != 0 && config.stop_token_ids == NULL)) return 0;
+    for (size_t i = 0; i < config.stop_token_count; ++i)
+        if (config.stop_token_ids[i] >= vocab_size) return 0;
+    return 1;
+}
+
+static int is_stop_token(vi_request_config config, vi_token token)
+{
+    if (config.stop_on_eos && token == config.eos_token) return 1;
+    for (size_t i = 0; i < config.stop_token_count; ++i)
+        if (token == config.stop_token_ids[i]) return 1;
+    return 0;
+}
+
 vi_status vi_request_init(vi_request *request, vi_token *history_storage,
                           size_t history_capacity, const vi_token *prompt,
                           size_t prompt_len, size_t vocab_size,
@@ -12,7 +30,7 @@ vi_status vi_request_init(vi_request *request, vi_token *history_storage,
         !vi_vocab_size_valid(vocab_size) ||
         prompt_len > history_capacity ||
         config.max_new_tokens > history_capacity - prompt_len ||
-        (config.stop_on_eos && config.eos_token >= vocab_size)) {
+        !stopping_policy_valid(config, vocab_size)) {
         return VI_INVALID;
     }
     if (vi_token_buffer_init(&initial.history, history_storage,
@@ -53,7 +71,7 @@ vi_status vi_request_ready(const vi_request *request)
         request->history.capacity > SIZE_MAX / sizeof(vi_token) ||
         request->history.len >= request->history.capacity ||
         request->history.len - request->prompt_len >= request->config.max_new_tokens ||
-        (request->config.stop_on_eos && request->config.eos_token >= request->vocab_size) ||
+        !stopping_policy_valid(request->config, request->vocab_size) ||
         (request->phase == VI_PREFILL &&
          (request->kv_len != 0 || request->history.len != request->prompt_len)) ||
         (request->phase == VI_DECODE && request->kv_len != request->history.len - 1)) {
@@ -81,7 +99,7 @@ vi_status vi_request_commit(vi_request *request, vi_token token,
     request->sampler_state = next_sampler_state;
     request->phase =
         request->history.len - request->prompt_len == request->config.max_new_tokens ||
-        (request->config.stop_on_eos && token == request->config.eos_token)
+        is_stop_token(request->config, token)
         ? VI_FINISHED : VI_DECODE;
     return VI_OK;
 }

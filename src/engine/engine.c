@@ -58,6 +58,7 @@ vi_status vi_engine_step(vi_engine *engine, vi_output *output)
     status = engine->model_runner.forward(
         engine->model_runner.model, &input, engine->logits_workspace, vocab_size);
     if (status != VI_OK) {
+        if (status == VI_MODEL_ERROR) engine->request.phase = VI_FAILED;
         return VI_MODEL_ERROR;
     }
     status = vi_sample_greedy(engine->logits_workspace, vocab_size,

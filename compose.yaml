@@ -1,0 +1,64 @@
+name: verifiedinfer
+
+x-build: &build
+  context: ./docker
+  network: host
+  args:
+    HTTP_PROXY: ${HTTP_PROXY:-}
+    HTTPS_PROXY: ${HTTPS_PROXY:-}
+    http_proxy: ${http_proxy:-}
+    https_proxy: ${https_proxy:-}
+
+x-workspace: &workspace
+  working_dir: ${WORKSPACE:-${PWD}}
+  user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+  volumes:
+    - type: bind
+      source: .
+      target: ${WORKSPACE:-${PWD}}
+  network_mode: host
+  init: true
+
+x-environment: &environment
+  WORKSPACE: ${WORKSPACE:-${PWD}}
+  CUDA_HOME: /usr/local/cuda
+  CUDA_HOST_CXX: /usr/bin/g++
+  CUDA_ARCH: ${CUDA_ARCH:-sm_80}
+  MAKE_JOBS: ${MAKE_JOBS:-4}
+  HTTP_PROXY: ${HTTP_PROXY:-}
+  HTTPS_PROXY: ${HTTPS_PROXY:-}
+  http_proxy: ${http_proxy:-}
+  https_proxy: ${https_proxy:-}
+
+services:
+  engine:
+    <<: *workspace
+    image: verifiedinfer-engine:local
+    gpus: all
+    build:
+      <<: *build
+      target: engine
+    environment:
+      <<: *environment
+      PYTHON: /opt/venv/bin/python
+      BUILD_DIR: build/container/cuda
+      VI_DEVICE: cuda
+      CUDA: "1"
+
+  qcp:
+    <<: *workspace
+    image: verifiedinfer-qcp:local
+    build:
+      <<: *build
+      target: qcp
+    environment:
+      <<: *environment
+
+  ptx:
+    <<: *workspace
+    image: verifiedinfer-ptx:local
+    build:
+      <<: *build
+      target: ptx
+    environment:
+      <<: *environment

@@ -1,53 +1,16 @@
 # Tools
 
-Run these commands from the repository root unless noted otherwise.
+从仓库根目录通过 Compose 使用工具：
 
-## Verification
-
-- [PTX Verify](ptx-verify/README.md): translate PTX and check Lean kernel contracts.
-- [QCP](QCP/README.md): C verification tooling.
-- [LKV](LKV/README.md): Lean kernel verification reference.
-
-Initialize the QCP and LKV submodules with:
-
-```sh
-git submodule update --init --recursive tools/QCP tools/LKV
+```bash
+./dev run --rm qcp check
+./dev run --rm ptx check
+./dev run --rm engine make compile-commands
 ```
 
-## Development
+- [QCP](QCP/README.md)：C 内存与状态验证；`check` 自动初始化子模块并构建 Rocq 基础库。验证具体 C 模块时遵循其工作流。
+- [PTX Verify](ptx-verify/README.md)：PTX 翻译及 Lean kernel 规约检查；`check` 自动准备依赖并运行现有检查。
+- `download_model.py`、`check_model.py`：模型下载和独立参考检查。常用模型由 `engine generate` 自动准备；高级选项见脚本 `--help`。
+- `setup_nvidia_compat.py`、`with_nvidia.sh`：已有的宿主机驱动兼容工具。Compose 入口自动使用与当前内核模块匹配的本地库。
 
-Generate `compile_commands.json` for clangd from the current Make configuration:
-
-```sh
-python3 tools/generate_compile_commands.py
-# Pass a custom Make command or configuration when needed:
-python3 tools/generate_compile_commands.py make CUDA=1
-```
-
-## Models
-
-Use the project Python environment. Downloading requires `huggingface_hub`;
-reference checking also requires NumPy, PyTorch, and Transformers.
-
-```sh
-.venv/bin/python tools/download_model.py --repo HuggingFaceTB/SmolLM2-135M-Instruct \
-  --output models/SmolLM2-135M-Instruct
-.venv/bin/python tools/check_model.py --model models/SmolLM2-135M-Instruct \
-  --binary build/vi-run --device cpu
-```
-
-Pass `--revision HASH` to pin a download; the downloader records its revision and hashes. The checker
-compares cached and cold native runs and reports Hugging Face diagnostics.
-Use `--help` for all options.
-
-## NVIDIA compatibility
-
-Extract matching userspace libraries into `build/`, then use them for one command:
-
-```sh
-python3 tools/setup_nvidia_compat.py
-sh tools/with_nvidia.sh nvidia-smi
-sh tools/with_nvidia.sh make CUDA=1 model-test
-```
-
-Use `--archive /path/to/NVIDIA-Linux-x86_64-<version>.run` to reuse a local archive.
+环境与常用运行命令见 [项目说明](../READMDE.md)。

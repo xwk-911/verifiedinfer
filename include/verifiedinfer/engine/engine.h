@@ -34,7 +34,8 @@ vi_status vi_engine_init(vi_engine *engine, vi_model_runner model_runner,
  * sampled token has not been forwarded yet (fields live in engine.request).
  * Caller supplies output->logits with at least vocab_size elements. The output
  * descriptor and its logits are unchanged on failure. Logits workspace may be
- * overwritten. Detected nonfinite logits make the engine terminally FAILED;
+ * overwritten. Fatal model errors or detected nonfinite logits make the engine
+ * terminally FAILED; input/capacity errors preserve the request for retry.
  * arbitrary violations by foreign model implementations cannot be detected. */
 vi_status vi_engine_step(vi_engine *engine, vi_output *output);
 
