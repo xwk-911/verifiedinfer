@@ -1,0 +1,26 @@
+// Exactly two threads exchange values through shared memory.
+.version 7.0
+.target sm_70
+.address_size 64
+.visible .entry missing_sync(.param .u64 src, .param .u64 dst)
+{
+    .reg .u32 %r<4>;
+    .reg .u64 %rd<8>;
+    .shared .align 4 .b8 tile[8];
+    ld.param.u64 %rd0, [src];
+    ld.param.u64 %rd1, [dst];
+    mov.u32 %r0, %tid.x;
+    mul.wide.u32 %rd2, %r0, 4;
+    add.u64 %rd3, %rd0, %rd2;
+    add.u64 %rd4, %rd1, %rd2;
+    mov.u64 %rd5, tile;
+    add.u64 %rd6, %rd5, %rd2;
+    ld.global.u32 %r1, [%rd3];
+    st.shared.u32 [%rd6], %r1;
+    sub.u32 %r2, 1, %r0;
+    mul.wide.u32 %rd2, %r2, 4;
+    add.u64 %rd7, %rd5, %rd2;
+    ld.shared.u32 %r3, [%rd7];
+    st.global.u32 [%rd4], %r3;
+    ret;
+}

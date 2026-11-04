@@ -1,0 +1,7 @@
+/target/
+/vendor/
+/lean/.lake/
+/PROGRESS.md
+*.olean
+*.ilean
+*.trace

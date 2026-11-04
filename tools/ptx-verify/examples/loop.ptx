@@ -1,0 +1,14 @@
+.version 7.0
+.target sm_70
+.address_size 64
+.visible .entry loop()
+{
+    .reg .u32 %r;
+    .reg .pred %p;
+    mov.u32 %r, 0;
+LOOP:
+    add.u32 %r, %r, 1;
+    setp.lt.u32 %p, %r, 4;
+    @%p bra LOOP;
+    ret;
+}
