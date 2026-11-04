@@ -1,0 +1,45 @@
+# VerifiedInfer
+VerifiedInfer aims to provide deterministic LLM inference and formally verify that its inference engine produces exactly the same logits and tokens as the corresponding open-source implementations for the same model, inputs, and initial sampling state.
+
+```bash
+./dev build
+
+# Mock example
+./dev run --rm engine make demo mock
+
+# Trained models: the first run automatically prepares the model and builds the CUDA engine
+./dev run --rm engine generate --model smollm2 \
+    --prompt "What is the capital of France?" --max-new-tokens 32
+./dev run --rm engine generate --model qwen \
+    --prompt "What is the capital of France?" --max-new-tokens 32
+
+# C regression and model compatibility tests
+./dev run --rm engine make test model-test
+
+# QCP's Rocq foundation libraries; PTX translator and Lean checks
+./dev run --rm qcp check
+./dev run --rm ptx check
+
+# Export PTX for the project's CUDA operators
+./dev run --rm engine make cuda-ptx
+```
+
+Tests and formal proofs are reported separately. Model tests check exact agreement within a fixed execution plan. The QCP/PTX commands check their existing foundation libraries or examples; they do not establish a proof of the entire inference engine. cuBLAS, the CUDA runtime, compilers, and connections between proof systems remain proof boundaries.
+
+## Related work
+
+### LLM Inference
+
+- Vosti: https://github.com/QDelta/Vosti
+- ds4: https://github.com/antirez/ds4
+- DeepInfer: https://github.com/deepseek-ai/DeepInfer
+
+### GPU Kernel equivalence
+
+- Kuiper/RESOLVE: https://arxiv.org/abs/2610.05683
+- LARK: https://arxiv.org/pdf/2611.02028v1
+
+### LLM model equivalence verification
+
+- Emerge: https://arxiv.org/pdf/2603.21851
+- Tensor Algebra Equivalence Checker: https://pldi26.sigplan.org/details/ARRAY-2026-papers/12/Tensor-Algebra-Equivalence-Checker
