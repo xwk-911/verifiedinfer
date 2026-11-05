@@ -1,4 +1,4 @@
-#include "model_internal.h"
+#include "../model_internal.h"
 
 #include <math.h>
 #include <stdlib.h>

@@ -31,5 +31,5 @@ device = os.environ.get("VI_DEVICE", "cuda")
 build = root / "build" / "container" / device
 subprocess.run(["make", "--no-print-directory", "-s", f"CUDA={int(device == 'cuda')}",
                 f"BUILD_DIR={build}", "all"], check=True)
-os.execv(sys.executable, [sys.executable, "examples/generate.py", "--model", str(model),
+os.execv(sys.executable, [sys.executable, "cli/generate.py", "--model", str(model),
                          "--device", device, "--binary", str(build / "vi-run"), *generation_args])

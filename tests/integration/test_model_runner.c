@@ -25,25 +25,36 @@ int main(int argc, char **argv)
     vi_model_runner runners[2];
     for (size_t i = 0; i < 2; ++i)
         CHECK(vi_model_state_create(model, 8, &states[i], &runners[i], error, sizeof(error)) == VI_OK);
+    /* Failed factory calls must not publish a partial state or runner. */
+    vi_model_state *unchanged_state = states[0];
+    vi_model_runner unchanged_runner = runners[0];
+    CHECK(vi_model_state_create(model, 0, &unchanged_state, &unchanged_runner,
+                               error, sizeof(error)) == VI_INVALID);
+    CHECK(unchanged_state == states[0]);
+    CHECK(memcmp(&unchanged_runner, &runners[0], sizeof(unchanged_runner)) == 0);
+    CHECK(vi_model_state_create(model, config->max_seq_len + 1,
+          &unchanged_state, &unchanged_runner, error, sizeof(error)) == VI_INVALID);
+    CHECK(unchanged_state == states[0]);
+    CHECK(memcmp(&unchanged_runner, &runners[0], sizeof(unchanged_runner)) == 0);
     const vi_token tokens[] = {1, 2, 3, 4, 1};
     vi_model_input input = {.tokens = tokens, .count = 5};
-    CHECK(runners[0].forward(runners[0].model, &input, full, v) == VI_OK);
+    CHECK(runners[0].forward(runners[0].state, &input, full, v) == VI_OK);
     input.count = 2;
-    CHECK(runners[1].forward(runners[1].model, &input, split, v) == VI_OK);
+    CHECK(runners[1].forward(runners[1].state, &input, split, v) == VI_OK);
     CHECK(vi_model_cached_tokens(states[0]) == 5 && vi_model_cached_tokens(states[1]) == 2);
     input = (vi_model_input){.tokens = tokens + 2, .count = 3, .position = 2};
-    CHECK(runners[1].forward(runners[1].model, &input, split, v) == VI_OK);
+    CHECK(runners[1].forward(runners[1].state, &input, split, v) == VI_OK);
     CHECK(memcmp(full, split, v * sizeof(float)) == 0);
     input.position = 0;
-    CHECK(runners[1].forward(runners[1].model, &input, split, v) == VI_INVALID);
+    CHECK(runners[1].forward(runners[1].state, &input, split, v) == VI_INVALID);
     CHECK(vi_model_cached_tokens(states[1]) == 5);
     input.position = 5;
     input.count = 4;
-    CHECK(runners[1].forward(runners[1].model, &input, split, v) == VI_NO_SPACE);
+    CHECK(runners[1].forward(runners[1].state, &input, split, v) == VI_NO_SPACE);
     CHECK(vi_model_cached_tokens(states[1]) == 5);
     const vi_token bad_token = (vi_token)v;
     input = (vi_model_input){.tokens = &bad_token, .count = 1, .position = 5};
-    CHECK(runners[1].forward(runners[1].model, &input, split, v) == VI_INVALID);
+    CHECK(runners[1].forward(runners[1].state, &input, split, v) == VI_INVALID);
     CHECK(vi_model_cached_tokens(states[1]) == 5);
     CHECK(memcmp(full, split, v * sizeof(float)) == 0);
     for (size_t i = 0; i < 2; ++i) {
@@ -64,7 +75,7 @@ int main(int argc, char **argv)
             vi_model_runner reference;
             CHECK(vi_model_state_create(model, 8, &cold, &reference, error, sizeof(error)) == VI_OK);
             input = (vi_model_input){.tokens = histories[i], .count = 3 + step};
-            CHECK(reference.forward(reference.model, &input, full, v) == VI_OK);
+            CHECK(reference.forward(reference.state, &input, full, v) == VI_OK);
             vi_sample_result expected;
             CHECK(vi_sample_greedy(full, v, engines[i].request.sampler_state, &expected) == VI_OK);
             CHECK(vi_engine_step(&engines[i], &outputs[i]) == VI_OK);

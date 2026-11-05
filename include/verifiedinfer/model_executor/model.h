@@ -11,7 +11,7 @@ extern "C" {
 typedef enum { VI_DEVICE_CPU, VI_DEVICE_CUDA } vi_device;
 typedef enum { VI_ARCH_LLAMA, VI_ARCH_QWEN2 } vi_model_architecture;
 
-/* Normalized capabilities, not a model-name whitelist. Full causal attention,
+/* Normalized configuration of the currently supported Llama/Qwen2 subset. Full causal attention,
  * half-split RoPE, RMSNorm and SwiGLU only. All runtime tensors are FP32. */
 typedef struct {
     vi_model_architecture architecture;
@@ -22,7 +22,7 @@ typedef struct {
 } vi_model_config;
 
 typedef struct vi_model vi_model;             /* Immutable resident weights. */
-typedef struct vi_model_state vi_model_state; /* Exclusive KV and workspace. */
+typedef struct vi_model_state vi_model_state; /* Exclusive architecture-defined request state. */
 
 /* config.json + model.safetensors or model.safetensors.index.json. Checks shape,
  * dtype, bounds and supported features. Failure leaves *out unchanged and writes
@@ -36,7 +36,8 @@ void vi_model_free(vi_model *model);
 
 /* The model outlives all states and runners borrowing it. Separate states may
  * share weights; do not call a state concurrently. context <= model max length.
- * Initialization returns an empty-cache runner, without changing the engine API.
+ * The common factory dispatches allocation to the registered architecture and
+ * returns an empty-state runner borrowing the result.
  * Fatal compute failures poison this state; create a new state before retrying.
  * Validation/capacity failures do not consume input. All calls are synchronous. */
 vi_status vi_model_state_create(const vi_model *model, size_t context,

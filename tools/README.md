@@ -13,4 +13,4 @@
 - `download_model.py`、`check_model.py`：模型下载和独立参考检查。常用模型由 `engine generate` 自动准备；高级选项见脚本 `--help`。
 - `setup_nvidia_compat.py`、`with_nvidia.sh`：已有的宿主机驱动兼容工具。Compose 入口自动使用与当前内核模块匹配的本地库。
 
-环境与常用运行命令见 [项目说明](../READMDE.md)。
+环境与常用运行命令见 [项目说明](../README.md)。

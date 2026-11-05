@@ -1,5 +1,5 @@
-#ifndef VI_DENSE_MODEL_H
-#define VI_DENSE_MODEL_H
+#ifndef VI_TINY_TRANSFORMER_H
+#define VI_TINY_TRANSFORMER_H
 
 #include "verifiedinfer/model_executor/model_runner.h"
 
@@ -11,13 +11,13 @@ typedef struct {
     size_t intermediate_size;
     size_t max_seq_len;
     float rms_norm_epsilon;
-} vi_dense_config;
+} vi_tiny_transformer_config;
 
 /* Immutable row-major weights. Matrices have shape [output, input].
  * Initialized as views into caller storage in the field order below.
  * Descriptor and backing storage outlive every model that borrows them. */
 typedef struct {
-    vi_dense_config config;
+    vi_tiny_transformer_config config;
     const float *token_embedding;    /* [vocab, hidden] */
     const float *position_embedding; /* [max_seq_len, hidden] */
     const float *attention_norm;     /* [hidden] */
@@ -31,29 +31,29 @@ typedef struct {
     const float *down_proj;          /* [hidden, intermediate] */
     const float *output_norm;        /* [hidden] */
     const float *lm_head;            /* [vocab, hidden] */
-} vi_dense_weights;
+} vi_tiny_transformer_weights;
 
 typedef struct {
     float *keys;   /* [capacity, hidden], committed prefix [0, len) */
     float *values;
     size_t len;
     size_t capacity; /* Tokens, not float elements. */
-} vi_dense_kv_cache;
+} vi_tiny_transformer_kv_cache;
 
 typedef struct {
-    const vi_dense_weights *weights; /* Shared read-only. */
-    vi_dense_kv_cache cache;         /* Exclusive to this request. */
+    const vi_tiny_transformer_weights *weights; /* Shared read-only. */
+    vi_tiny_transformer_kv_cache cache;         /* Exclusive to this request. */
     float *workspace;               /* Exclusive temporary float elements. */
     size_t workspace_count;
-} vi_dense_model;
+} vi_tiny_transformer_model;
 
 /* Required float-element counts, or zero for invalid/overflowing config. */
-size_t vi_dense_weights_count(vi_dense_config config);
-size_t vi_dense_workspace_count(vi_dense_config config);
-size_t vi_dense_kv_count(vi_dense_config config); /* For EACH of K and V. */
+size_t vi_tiny_transformer_weights_count(vi_tiny_transformer_config config);
+size_t vi_tiny_transformer_workspace_count(vi_tiny_transformer_config config);
+size_t vi_tiny_transformer_kv_count(vi_tiny_transformer_config config); /* For EACH of K and V. */
 
 /* Validates finite weights and creates immutable views; failure changes nothing. */
-vi_status vi_dense_weights_init(vi_dense_weights *weights, vi_dense_config config,
+vi_status vi_tiny_transformer_weights_init(vi_tiny_transformer_weights *weights, vi_tiny_transformer_config config,
                                 const float *storage, size_t count);
 
 /* No allocation. Arrays/descriptors are disjoint, except immutable weights may
@@ -61,7 +61,7 @@ vi_status vi_dense_weights_init(vi_dense_weights *weights, vi_dense_config confi
  * unchanged. A runner is a borrowed handle: copying it does not clone state.
  * On forward failure only the committed cache prefix and length are preserved;
  * scratch and unused cache rows may have changed. See model_runner.h. */
-vi_status vi_dense_model_init(vi_dense_model *model, const vi_dense_weights *weights,
+vi_status vi_tiny_transformer_model_init(vi_tiny_transformer_model *model, const vi_tiny_transformer_weights *weights,
                               float *keys, float *values, size_t kv_count,
                               float *workspace, size_t workspace_count,
                               vi_model_runner *runner);

@@ -1,7 +1,7 @@
-#ifndef VI_TINY_DENSE_WEIGHTS_H
-#define VI_TINY_DENSE_WEIGHTS_H
+#ifndef VI_TINY_TRANSFORMER_WEIGHTS_H
+#define VI_TINY_TRANSFORMER_WEIGHTS_H
 
-#include "verifiedinfer/model_executor/models/dense_model.h"
+#include "support/tiny_transformer.h"
 
 /* Deterministic, UNTRAINED fixture, deliberately using a vocabulary > 32.
  * These are test weights, not a model download or a text-generation demo. */
@@ -13,16 +13,16 @@ enum {
     TINY_WORKSPACE = 5 * TINY_HIDDEN + 2 * TINY_FFN + TINY_CONTEXT
 };
 
-static inline vi_status tiny_dense_weights_init(vi_dense_weights *weights,
+static inline vi_status tiny_transformer_weights_init(vi_tiny_transformer_weights *weights,
                                                float storage[TINY_WEIGHTS])
 {
-    const vi_dense_config config = {.vocab_size = TINY_VOCAB,
+    const vi_tiny_transformer_config config = {.vocab_size = TINY_VOCAB,
         .hidden_size = TINY_HIDDEN, .intermediate_size = TINY_FFN,
         .max_seq_len = TINY_CONTEXT, .rms_norm_epsilon = 1e-5f};
     for (size_t i = 0; i < TINY_WEIGHTS; ++i) {
         storage[i] = (float)((int)((i * 37 + 11) % 101) - 50) / 128.0f;
     }
-    vi_status status = vi_dense_weights_init(weights, config, storage, TINY_WEIGHTS);
+    vi_status status = vi_tiny_transformer_weights_init(weights, config, storage, TINY_WEIGHTS);
     if (status != VI_OK) {
         return status;
     }

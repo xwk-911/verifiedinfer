@@ -4,78 +4,78 @@
 #include <string.h>
 
 #include "verifiedinfer/engine/engine.h"
-#include "verifiedinfer/model_executor/models/mock_model.h"
+#include "support/tiny_transformer_weights.h"
 
 #include "support/check.h"
 
 static void test_prefill_decode_and_finish(void)
 {
-    vi_token history[7], cache[7];
+    vi_token history[7];
     const vi_token prompt[] = {1, 2, 3};
-    vi_mock_model mock;
-    vi_model_runner model_runner;
+    float weights_storage[TINY_WEIGHTS], keys[TINY_KV], values[TINY_KV];
+    float workspace[TINY_WORKSPACE], work[TINY_VOCAB], logits[TINY_VOCAB] = {0};
+    vi_tiny_transformer_weights weights;
+    vi_tiny_transformer_model model;
+    vi_model_runner runner;
     vi_engine engine;
-    float work[8], logits[8] = {0};
-    vi_output output = {.logits = logits, .logits_capacity = 8};
-    const vi_token expected_tokens[] = {0, 7, 3, 4};
-    const float first_logits[] = {10, 5, 0, 6, 1, 7, 2, 8};
-    CHECK(vi_mock_model_init(&mock, cache, 7, 8, &model_runner) == VI_OK);
-    CHECK(vi_engine_init(&engine, model_runner, history, 7, work, 8, prompt, 3,
+    vi_output output = {.logits = logits, .logits_capacity = TINY_VOCAB};
+    CHECK(tiny_transformer_weights_init(&weights, weights_storage) == VI_OK);
+    CHECK(vi_tiny_transformer_model_init(&model, &weights, keys, values, TINY_KV,
+          workspace, TINY_WORKSPACE, &runner) == VI_OK);
+    CHECK(vi_engine_init(&engine, runner, history, 7, work, TINY_VOCAB, prompt, 3,
                          (vi_request_config){.max_new_tokens = 4}) == VI_OK);
     CHECK(engine.request.phase == VI_PREFILL && engine.request.kv_len == 0);
     for (size_t i = 0; i < 4; ++i) {
         CHECK(vi_engine_step(&engine, &output) == VI_OK);
         CHECK(engine.request.history.len == 4 + i);
-        CHECK(engine.request.kv_len == 3 + i && mock.cache.len == engine.request.kv_len);
-        CHECK(mock.forward_calls == i + 1);
+        CHECK(engine.request.kv_len == 3 + i && model.cache.len == engine.request.kv_len);
         CHECK(memcmp(history, prompt, sizeof(prompt)) == 0);
-        CHECK(memcmp(cache, history, engine.request.kv_len * sizeof(vi_token)) == 0);
         CHECK(history[engine.request.history.len - 1] == output.token);
-        CHECK(output.token == expected_tokens[i]);
-        CHECK(output.token < output.vocab_size && output.vocab_size == 8);
-        if (i == 0) {
-            CHECK(memcmp(output.logits, first_logits, sizeof(first_logits)) == 0);
-        }
-        for (size_t j = 0; j < output.vocab_size; ++j) {
+        CHECK(output.token < output.vocab_size && output.vocab_size == TINY_VOCAB);
+        for (size_t j = 0; j < output.vocab_size; ++j)
             CHECK(output.logits[output.token] >= output.logits[j]);
-        }
     }
     CHECK(engine.request.phase == VI_FINISHED);
     const vi_output saved = output;
-    float saved_logits[8];
+    float saved_logits[TINY_VOCAB];
     memcpy(saved_logits, logits, sizeof(logits));
     CHECK(vi_engine_step(&engine, &output) == VI_DONE);
-    CHECK(mock.forward_calls == 4 && engine.request.history.len == 7);
+    CHECK(model.cache.len == 6 && engine.request.history.len == 7);
     CHECK(output.token == saved.token);
     CHECK(memcmp(output.logits, saved_logits, sizeof(saved_logits)) == 0);
 }
 
 static void test_independent_requests(void)
 {
-    vi_token histories[2][5], caches[2][5];
+    vi_token histories[2][5];
     const vi_token prompt[] = {1, 2};
-    vi_mock_model mocks[2];
+    float weights_storage[TINY_WEIGHTS];
+    vi_tiny_transformer_weights weights;
+    CHECK(tiny_transformer_weights_init(&weights, weights_storage) == VI_OK);
+    vi_tiny_transformer_model models[2];
     vi_model_runner runners[2];
     vi_engine engines[2];
-    float work[2][8], logits[2][8];
+    float keys[2][TINY_KV], values[2][TINY_KV], workspace[2][TINY_WORKSPACE];
+    float work[2][TINY_VOCAB], logits[2][TINY_VOCAB];
     vi_output outputs[2] = {
-        {.logits = logits[0], .logits_capacity = 8},
-        {.logits = logits[1], .logits_capacity = 8}
+        {.logits = logits[0], .logits_capacity = TINY_VOCAB},
+        {.logits = logits[1], .logits_capacity = TINY_VOCAB}
     };
     for (size_t i = 0; i < 2; ++i) {
-        CHECK(vi_mock_model_init(&mocks[i], caches[i], 5, 8, &runners[i]) == VI_OK);
-        CHECK(vi_engine_init(&engines[i], runners[i], histories[i], 5, work[i], 8, prompt, 2,
-                             (vi_request_config){.max_new_tokens = 3,
-                                                 .initial_sampler_state = 19}) == VI_OK);
+        CHECK(vi_tiny_transformer_model_init(&models[i], &weights, keys[i], values[i], TINY_KV,
+              workspace[i], TINY_WORKSPACE, &runners[i]) == VI_OK);
+        CHECK(vi_engine_init(&engines[i], runners[i], histories[i], 5, work[i], TINY_VOCAB,
+              prompt, 2, (vi_request_config){.max_new_tokens = 3,
+              .initial_sampler_state = 19}) == VI_OK);
     }
     for (size_t step = 0; step < 3; ++step) {
         CHECK(vi_engine_step(&engines[1], &outputs[1]) == VI_OK);
-        CHECK(mocks[0].forward_calls == step);
+        CHECK(models[0].cache.len == (step ? step + 1 : 0));
         CHECK(vi_engine_step(&engines[0], &outputs[0]) == VI_OK);
         CHECK(outputs[0].token == outputs[1].token);
-        CHECK(memcmp(outputs[0].logits, outputs[1].logits,
-                     sizeof(logits[0])) == 0);
+        CHECK(memcmp(outputs[0].logits, outputs[1].logits, sizeof(logits[0])) == 0);
         CHECK(engines[0].request.sampler_state == engines[1].request.sampler_state);
+        CHECK(memcmp(keys[0], keys[1], models[0].cache.len * TINY_HIDDEN * sizeof(float)) == 0);
     }
 }
 
@@ -112,28 +112,31 @@ static void test_eos_and_sampling_state(void)
     CHECK(vi_engine_step(&engine, &output) == VI_DONE);
 }
 
+static vi_status reject_capacity(void *state, const vi_model_input *input,
+                                  float *logits, size_t vocab_size)
+{
+    (void)state; (void)input; (void)logits; (void)vocab_size;
+    return VI_NO_SPACE;
+}
+
 static void test_initialization_and_model_failure(void)
 {
     vi_token history[] = {91, 92, 93};
-    vi_token cache[1];
     const vi_token prompt[] = {1, 2};
-    vi_mock_model mock;
-    vi_model_runner model_runner;
+    vi_model_runner runner = {.forward = reject_capacity, .vocab_size = 8};
     vi_engine engine = {0};
     float work[8], logits[8] = {0};
     vi_output output = {.logits = logits, .logits_capacity = 8, .token = 99};
-    CHECK(vi_mock_model_init(&mock, cache, 1, 8, &model_runner) == VI_OK);
-    CHECK(vi_engine_init(&engine, model_runner, history, 3, work, 8, prompt, 2,
+    CHECK(vi_engine_init(&engine, runner, history, 3, work, 8, prompt, 2,
                          (vi_request_config){.max_new_tokens = SIZE_MAX}) == VI_INVALID);
     CHECK(history[0] == 91 && engine.request.history.data == NULL);
-    CHECK(vi_engine_init(&engine, model_runner, history, 3, work, 8, prompt, 2,
+    CHECK(vi_engine_init(&engine, runner, history, 3, work, 8, prompt, 2,
                          (vi_request_config){.max_new_tokens = 1}) == VI_OK);
     CHECK(vi_engine_step(&engine, &output) == VI_MODEL_ERROR);
-    CHECK(mock.cache.len == 0 && mock.forward_calls == 0 && mock.prefix_hash == 0);
     CHECK(engine.request.phase == VI_PREFILL && engine.request.kv_len == 0 && engine.request.history.len == 2);
     CHECK(output.token == 99 && logits[0] == 0);
     const vi_token invalid_prompt[] = {8};
-    CHECK(vi_engine_init(&engine, model_runner, history, 3, work, 8, invalid_prompt, 1,
+    CHECK(vi_engine_init(&engine, runner, history, 3, work, 8, invalid_prompt, 1,
                          (vi_request_config){.max_new_tokens = 1}) == VI_INVALID);
     CHECK(history[0] == 1 && history[1] == 2);
 }
@@ -179,7 +182,7 @@ static vi_status fatal_model_error(void *model, const vi_model_input *input,
 static void test_fatal_model_error_is_terminal(void)
 {
     size_t calls = 0;
-    vi_model_runner runner = {.model = &calls, .forward = fatal_model_error, .vocab_size = 8};
+    vi_model_runner runner = {.state = &calls, .forward = fatal_model_error, .vocab_size = 8};
     vi_token history[2];
     const vi_token prompt[] = {1};
     float work[8], logits[8] = {42};

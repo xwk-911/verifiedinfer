@@ -102,7 +102,7 @@ int main(int argc, char **argv)
                 free(partition); snprintf(error, sizeof(error), "invalid chunk partition"); goto done;
             }
             vi_model_input input = {.tokens = prompt + position, .count = n, .position = position};
-            if (runner.forward(runner.model, &input, logits, runner.vocab_size) != VI_OK) {
+            if (runner.forward(runner.state, &input, logits, runner.vocab_size) != VI_OK) {
                 free(partition); snprintf(error, sizeof(error), "forward failed"); goto done;
             }
             position += n;

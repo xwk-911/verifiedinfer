@@ -56,7 +56,7 @@ vi_status vi_engine_step(vi_engine *engine, vi_output *output)
         .position = engine->request.kv_len
     };
     status = engine->model_runner.forward(
-        engine->model_runner.model, &input, engine->logits_workspace, vocab_size);
+        engine->model_runner.state, &input, engine->logits_workspace, vocab_size);
     if (status != VI_OK) {
         if (status == VI_MODEL_ERROR) engine->request.phase = VI_FAILED;
         return VI_MODEL_ERROR;

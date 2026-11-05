@@ -1,8 +1,8 @@
-#include "verifiedinfer/model_executor/models/dense_model.h"
+#include "support/tiny_transformer.h"
 
 #include <math.h>
 
-static int config_valid(vi_dense_config c)
+static int config_valid(vi_tiny_transformer_config c)
 {
     return vi_vocab_size_valid(c.vocab_size) && c.hidden_size != 0 &&
         c.intermediate_size != 0 && c.max_seq_len != 0 &&
@@ -20,7 +20,7 @@ static int add_matrix(size_t *count, size_t rows, size_t cols)
     return 1;
 }
 
-size_t vi_dense_weights_count(vi_dense_config c)
+size_t vi_tiny_transformer_weights_count(vi_tiny_transformer_config c)
 {
     size_t n = 0;
     if (!config_valid(c) ||
@@ -42,7 +42,7 @@ size_t vi_dense_weights_count(vi_dense_config c)
     return add_matrix(&n, c.vocab_size, c.hidden_size) ? n : 0;
 }
 
-size_t vi_dense_workspace_count(vi_dense_config c)
+size_t vi_tiny_transformer_workspace_count(vi_tiny_transformer_config c)
 {
     size_t n = 0;
     if (!config_valid(c) || !add_matrix(&n, 5, c.hidden_size) ||
@@ -53,16 +53,16 @@ size_t vi_dense_workspace_count(vi_dense_config c)
     return n;
 }
 
-size_t vi_dense_kv_count(vi_dense_config c)
+size_t vi_tiny_transformer_kv_count(vi_tiny_transformer_config c)
 {
     size_t n = 0;
     return config_valid(c) && add_matrix(&n, c.max_seq_len, c.hidden_size) ? n : 0;
 }
 
-vi_status vi_dense_weights_init(vi_dense_weights *weights, vi_dense_config c,
+vi_status vi_tiny_transformer_weights_init(vi_tiny_transformer_weights *weights, vi_tiny_transformer_config c,
                                 const float *storage, size_t count)
 {
-    const size_t required = vi_dense_weights_count(c);
+    const size_t required = vi_tiny_transformer_weights_count(c);
     if (weights == NULL || storage == NULL || required == 0 || count < required ||
         count > SIZE_MAX / sizeof(float)) {
         return VI_INVALID;
@@ -73,7 +73,7 @@ vi_status vi_dense_weights_init(vi_dense_weights *weights, vi_dense_config c,
         }
     }
     const size_t d = c.hidden_size, f = c.intermediate_size;
-    vi_dense_weights w = {.config = c};
+    vi_tiny_transformer_weights w = {.config = c};
     size_t offset = 0;
 #define TAKE(field, size) do { w.field = storage + offset; offset += (size); } while (0)
     TAKE(token_embedding, c.vocab_size * d);
@@ -133,18 +133,18 @@ static int rms_norm(const float *x, const float *weight, float *out,
     return finite_vector(out, n);
 }
 
-static vi_status dense_forward(void *state, const vi_model_input *input,
+static vi_status tiny_transformer_forward(void *state, const vi_model_input *input,
                                 float *logits, size_t vocab_size)
 {
-    vi_dense_model *model = state;
+    vi_tiny_transformer_model *model = state;
     if (model == NULL || model->weights == NULL || input == NULL ||
         input->tokens == NULL || input->count == 0 || logits == NULL) {
         return VI_INVALID;
     }
-    const vi_dense_weights *w = model->weights;
-    const vi_dense_config c = w->config;
-    const size_t needed = vi_dense_workspace_count(c);
-    if (vi_dense_weights_count(c) == 0 || needed == 0 ||
+    const vi_tiny_transformer_weights *w = model->weights;
+    const vi_tiny_transformer_config c = w->config;
+    const size_t needed = vi_tiny_transformer_workspace_count(c);
+    if (vi_tiny_transformer_weights_count(c) == 0 || needed == 0 ||
         vocab_size != c.vocab_size || model->workspace == NULL ||
         model->workspace_count < needed ||
         model->workspace_count > SIZE_MAX / sizeof(float) ||
@@ -246,7 +246,7 @@ static vi_status dense_forward(void *state, const vi_model_input *input,
     return VI_OK;
 }
 
-vi_status vi_dense_model_init(vi_dense_model *model, const vi_dense_weights *weights,
+vi_status vi_tiny_transformer_model_init(vi_tiny_transformer_model *model, const vi_tiny_transformer_weights *weights,
                               float *keys, float *values, size_t kv_count,
                               float *workspace, size_t workspace_count,
                               vi_model_runner *runner)
@@ -255,17 +255,17 @@ vi_status vi_dense_model_init(vi_dense_model *model, const vi_dense_weights *wei
         keys == NULL || values == NULL || workspace == NULL) {
         return VI_INVALID;
     }
-    const size_t kv_needed = vi_dense_kv_count(weights->config);
-    const size_t work_needed = vi_dense_workspace_count(weights->config);
-    if (vi_dense_weights_count(weights->config) == 0 || kv_needed == 0 ||
+    const size_t kv_needed = vi_tiny_transformer_kv_count(weights->config);
+    const size_t work_needed = vi_tiny_transformer_workspace_count(weights->config);
+    if (vi_tiny_transformer_weights_count(weights->config) == 0 || kv_needed == 0 ||
         work_needed == 0 || kv_count < kv_needed || workspace_count < work_needed ||
         kv_count > SIZE_MAX / sizeof(float) || workspace_count > SIZE_MAX / sizeof(float)) {
         return VI_INVALID;
     }
-    *model = (vi_dense_model){.weights = weights,
+    *model = (vi_tiny_transformer_model){.weights = weights,
         .cache = {.keys = keys, .values = values, .capacity = weights->config.max_seq_len},
         .workspace = workspace, .workspace_count = workspace_count};
-    *runner = (vi_model_runner){.model = model, .forward = dense_forward,
+    *runner = (vi_model_runner){.state = model, .forward = tiny_transformer_forward,
         .vocab_size = weights->config.vocab_size};
     return VI_OK;
 }
