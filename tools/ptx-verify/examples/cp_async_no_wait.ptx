@@ -1,0 +1,20 @@
+// Deliberately missing completion: bar.sync alone does not complete cp.async.
+// Translation/assembly fixture only; never execute this undefined access on GPU.
+.version 7.0
+.target sm_80
+.address_size 64
+.visible .entry cp_async_no_wait(.param .u64 X, .param .u64 Y)
+{
+    .shared .align 16 .b8 tile[16];
+    .reg .u64 %x;
+    .reg .u64 %y;
+    .reg .u32 %v;
+    ld.param.u64 %x, [X];
+    ld.param.u64 %y, [Y];
+    cp.async.cg.shared.global [tile], [%x], 16;
+    cp.async.commit_group;
+    bar.sync 0;
+    ld.shared.u32 %v, [tile];
+    st.global.u32 [%y], %v;
+    ret;
+}

@@ -1,0 +1,130 @@
+// One warp per 16x8 tile; launch block=(4,8,1), grid=(N/8,M/16,1).
+// A is row-major f16 MxK, B is column-major f16 KxN, C is row-major f32 MxN.
+// Supported shape contract: M%16=N%8=K%16=0, with bounded disjoint buffers.
+// Explicit wait+CTA publication and post-read barrier before shared reuse.
+// Assembly/native evidence is separate from the pending universal Lean proof.
+.version 7.0
+.target sm_80
+.address_size 64
+.visible .entry ampere_tiled_matmul(
+  .param .u64 A, .param .u64 B, .param .u64 C,
+  .param .u32 M, .param .u32 N, .param .u32 K)
+{
+  .shared .align 16 .b8 tile[768];
+  .reg .u32 %x;
+  .reg .u32 %y;
+  .reg .u32 %m;
+  .reg .u32 %n;
+  .reg .u32 %k;
+  .reg .u32 %tm;
+  .reg .u32 %tn;
+  .reg .u32 %row;
+  .reg .u32 %col;
+  .reg .u32 %it;
+  .reg .u32 %tmp;
+  .reg .u32 %copyoff;
+  .reg .u32 %readoff;
+  .reg .pred %p;
+  .reg .u64 %a;
+  .reg .u64 %ah;
+  .reg .u64 %b;
+  .reg .u64 %c;
+  .reg .u64 %ch;
+  .reg .u64 %off;
+  .reg .u64 %small;
+  .reg .u64 %sa;
+  .reg .u64 %sah;
+  .reg .u64 %sb;
+  .reg .u64 %la;
+  .reg .u64 %lb;
+  .reg .b32 %ra<4>;
+  .reg .b32 %rb<2>;
+  .reg .f32 %acc<4>;
+  ld.param.u64 %a, [A];
+  ld.param.u64 %b, [B];
+  ld.param.u64 %c, [C];
+  ld.param.u32 %m, [M];
+  ld.param.u32 %n, [N];
+  ld.param.u32 %k, [K];
+  mov.u32 %x, %tid.x;
+  mov.u32 %y, %tid.y;
+  mov.u32 %tm, %ctaid.y;
+  mov.u32 %tn, %ctaid.x;
+  mul.lo.u32 %tm, %tm, 16;
+  mul.lo.u32 %tn, %tn, 8;
+  setp.ge.u32 %p, %tm, %m;
+  @%p bra DONE;
+  setp.ge.u32 %p, %tn, %n;
+  @%p bra DONE;
+  add.u32 %row, %tm, %y;
+  add.u32 %col, %tn, %y;
+  mul.wide.u32 %off, %row, %k;
+  mul.lo.u64 %off, %off, 2;
+  mul.wide.u32 %small, %x, 8;
+  add.u64 %off, %off, %small;
+  add.u64 %a, %a, %off;
+  mul.wide.u32 %off, %k, 16;
+  add.u64 %ah, %a, %off;
+  mul.wide.u32 %off, %col, %k;
+  mul.lo.u64 %off, %off, 2;
+  add.u64 %off, %off, %small;
+  add.u64 %b, %b, %off;
+  mul.wide.u32 %off, %row, %n;
+  mul.lo.u64 %off, %off, 4;
+  mul.lo.u32 %tmp, %x, 2;
+  add.u32 %tmp, %tn, %tmp;
+  mul.wide.u32 %small, %tmp, 4;
+  add.u64 %off, %off, %small;
+  add.u64 %c, %c, %off;
+  mul.wide.u32 %off, %n, 32;
+  add.u64 %ch, %c, %off;
+  mul.lo.u32 %copyoff, %y, 32;
+  mul.lo.u32 %tmp, %x, 8;
+  add.u32 %copyoff, %copyoff, %tmp;
+  mov.u64 %off, tile;
+  mul.wide.u32 %sa, %copyoff, 1;
+  add.u64 %sa, %sa, %off;
+  add.u64 %sah, %sa, 256;
+  add.u64 %sb, %sa, 512;
+  mul.lo.u32 %readoff, %y, 32;
+  mul.lo.u32 %tmp, %x, 4;
+  add.u32 %readoff, %readoff, %tmp;
+  mul.wide.u32 %la, %readoff, 1;
+  add.u64 %la, %la, %off;
+  add.u64 %lb, %la, 512;
+  mov.f32 %acc0, 0f00000000;
+  mov.f32 %acc1, 0f00000000;
+  mov.f32 %acc2, 0f00000000;
+  mov.f32 %acc3, 0f00000000;
+  mov.u32 %it, 0;
+LOOP:
+  setp.ge.u32 %p, %it, %k;
+  @%p bra STORE;
+  cp.async.ca.shared.global [%sa], [%a], 8;
+  cp.async.ca.shared.global [%sah], [%ah], 8;
+  cp.async.ca.shared.global [%sb], [%b], 8;
+  cp.async.commit_group;
+  cp.async.wait_group 0;
+  bar.sync 0;
+  ld.shared.b32 %ra0, [%la];
+  ld.shared.b32 %ra1, [%la+256];
+  ld.shared.b32 %ra2, [%la+16];
+  ld.shared.b32 %ra3, [%la+272];
+  ld.shared.b32 %rb0, [%lb];
+  ld.shared.b32 %rb1, [%lb+16];
+  mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32
+    {%acc0,%acc1,%acc2,%acc3}, {%ra0,%ra1,%ra2,%ra3}, {%rb0,%rb1}, {%acc0,%acc1,%acc2,%acc3};
+  bar.sync 0;
+  add.u64 %a, %a, 32;
+  add.u64 %ah, %ah, 32;
+  add.u64 %b, %b, 32;
+  add.u32 %it, %it, 16;
+  bra LOOP;
+STORE:
+  st.global.f32 [%c], %acc0;
+  st.global.f32 [%c+4], %acc1;
+  st.global.f32 [%ch], %acc2;
+  st.global.f32 [%ch+4], %acc3;
+DONE:
+  ret;
+}

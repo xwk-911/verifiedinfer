@@ -27,6 +27,9 @@ structure Buffer where
 inductive Command
   | copy (src dst : Nat)
   | use (buffer : Nat)
+  /-- Opaque resource use: mode controls the lifetime reservation only.
+  Data effects and actual byte permissions require a separate semantic bridge. -/
+  | access (buffer : Nat) (mode : Mode)
   | wait (ticket : Ticket)
   deriving Repr, DecidableEq
 structure Stream where
@@ -91,6 +94,11 @@ def submitCopy (s : State) (sid src dst : Nat) : Except Error State := do
 def submitUse (s : State) (sid bid : Nat) : Except Error State := do
   let s ← borrow s sid bid .read
   enqueue s sid (.use bid)
+/-- Reserve a read or write lifetime without inventing a copy source or a
+scalar value effect. This does not execute a PTX/TTGIR memory operation. -/
+def submitAccess (s : State) (sid bid : Nat) (mode : Mode) : Except Error State := do
+  let s ← borrow s sid bid mode
+  enqueue s sid (.access bid mode)
 def record (s : State) (sid id : Nat) : Except Error State := do
   let st ← getStream s sid
   if s.events.any (fun e => e.id == id) then throw .duplicateEvent
@@ -106,6 +114,9 @@ def execute (s : State) (c : Command) : Except Error State := do
   match c with
     | .wait t => if complete s t then pure s else throw .notComplete
     | .use bid => do
+      let _ ← getBuffer s bid
+      pure s
+    | .access bid _ => do
       let _ ← getBuffer s bid
       pure s
     | .copy src dst => do
@@ -164,6 +175,7 @@ steps, not independent host actions that may bypass resource acquisition. -/
 inductive Action where
   | copy (sid src dst : Nat)
   | use (sid buffer : Nat)
+  | access (sid buffer : Nat) (mode : Mode)
   | record (sid event : Nat)
   | wait (sid event : Nat)
   | device (sid : Nat)
@@ -175,6 +187,7 @@ inductive Action where
 def step (s : State) : Action → Except Error State
   | .copy sid src dst => submitCopy s sid src dst
   | .use sid bid => submitUse s sid bid
+  | .access sid bid mode => submitAccess s sid bid mode
   | .record sid event => record s sid event
   | .wait sid event => waitStream s sid event
   | .device sid => deviceStep s sid

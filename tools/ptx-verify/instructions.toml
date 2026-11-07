@@ -1,0 +1,770 @@
+# Local opcode spellings and executable probes. No inferred 81-form parity.
+schema_version = 1
+
+[paper]
+url = "https://sf-tensor.com/papers/formalizing-ptx.pdf"
+section = "5.1"
+forms = 81
+groups = {scalar_control_memory = 66, ampere = 5, hopper = 10}
+mapping_status = "unconfirmed"
+gap = "The paper supplies group counts, but no enumerated opcode/qualifier inventory was located. Every local form remains unmapped. Counts use different conventions: the local list includes an alias and separately records operand restrictions; 81 minus the local count is not a missing-form count."
+
+[profiles.integer]
+version = "7.0"
+target = "sm_70"
+declarations = ".reg .u32 %r0;\n.reg .u32 %r1;\n.reg .u64 %rd0;\n.reg .u64 %rd1;\n.reg .pred %p;\n.shared .align 16 .b8 tile[64];"
+
+[profiles.scalar]
+version = "7.0"
+target = "sm_70"
+declarations = ".reg .u32 %r0;\n.reg .u32 %r1;\n.reg .u64 %rd0;\n.reg .u64 %rd1;\n.reg .pred %p;\n.shared .align 16 .b8 tile[64];\n.reg .f32 %f0;\n.reg .f32 %f1;\n.reg .f32 %f2;\n.reg .f32 %f3;"
+
+[profiles.shuffle]
+version = "7.0"
+target = "sm_70"
+declarations = ".reg .u32 %r0;\n.reg .u32 %r1;\n.reg .u64 %rd0;\n.reg .u64 %rd1;\n.reg .pred %p;\n.shared .align 16 .b8 tile[64];"
+
+[profiles.ampere]
+version = "7.0"
+target = "sm_80"
+declarations = ".reg .u32 %r0;\n.reg .u32 %r1;\n.reg .u64 %rd0;\n.reg .u64 %rd1;\n.reg .pred %p;\n.shared .align 16 .b8 tile[64];\n.reg .f32 %f0;\n.reg .f32 %f1;\n.reg .f32 %f2;\n.reg .f32 %f3;\n.reg .b32 %a0;\n.reg .b32 %a1;\n.reg .b32 %a2;\n.reg .b32 %a3;\n.reg .b32 %b0;\n.reg .b32 %b1;"
+
+[profiles.hopper]
+version = "8.0"
+target = "sm_90a"
+declarations = ".reg .u32 %r0;\n.reg .u32 %r1;\n.reg .u64 %rd0;\n.reg .u64 %rd1;\n.reg .pred %p;\n.shared .align 16 .b8 tile[64];\n.reg .f32 %f0;\n.reg .f32 %f1;\n.reg .f32 %f2;\n.reg .f32 %f3;\n.reg .b64 %ad;\n.reg .b64 %bd;\n.shared .align 8 .b8 gate[8];"
+
+[[forms]]
+opcode = "add.rn.f32"
+canonical = "add.rn.f32"
+profile = "scalar"
+instruction = "add.rn.f32 %f0,%f1,%f2;"
+semantics = "lean/Ptx/Scalar/Thread.lean"
+regression = "float_types_predication_and_unmodeled_qualifiers_are_rejected"
+paper_mapping = "unconfirmed"
+limits = "Finite f32 literals and symbolic exact-real values/fragments; no IEEE rounding, NaN/infinity, bit reinterpretation, tolerance or universal GPU equivalence claim."
+
+[[forms]]
+opcode = "add.u32"
+canonical = "add.u32"
+profile = "integer"
+instruction = "add.u32 %r0,%r1,1;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "wide_multiply_preserves_declared_types_and_both_widths"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "add.u64"
+canonical = "add.u64"
+profile = "integer"
+instruction = "add.u64 %rd0,%rd1,1;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "wide_multiply_preserves_declared_types_and_both_widths"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "atom.global.relaxed.gpu.add.u32"
+canonical = "atom.global.relaxed.gpu.add.u32"
+profile = "integer"
+instruction = "atom.global.relaxed.gpu.add.u32 %r0,[64],1;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "atomic_forms_fail_closed_for_unmodeled_types_qualifiers_and_operands"
+paper_mapping = "unconfirmed"
+limits = "Only relaxed GPU-scoped global add.u32; two supported qualifier orders denote one canonical form. General atomic orders/scopes/operations are unsupported."
+
+[[forms]]
+opcode = "atom.relaxed.gpu.global.add.u32"
+canonical = "atom.global.relaxed.gpu.add.u32"
+profile = "integer"
+instruction = "atom.relaxed.gpu.global.add.u32 %r0,[64],1;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "atomic_forms_fail_closed_for_unmodeled_types_qualifiers_and_operands"
+paper_mapping = "unconfirmed"
+limits = "Only relaxed GPU-scoped global add.u32; two supported qualifier orders denote one canonical form. General atomic orders/scopes/operations are unsupported."
+
+[[forms]]
+opcode = "bar.sync"
+canonical = "bar.sync"
+profile = "integer"
+instruction = "bar.sync 0;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "fail_closed"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness. Barrier ID 0..15; counted/named partial-participant variants are unsupported."
+
+[[forms]]
+opcode = "bra"
+canonical = "bra"
+profile = "integer"
+instruction = "bra END;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "branches_resolve_instruction_pcs"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness. Only bra permits positive/negative predicate guards; labels resolve to instruction PCs."
+
+[[forms]]
+opcode = "cp.async.bulk.tensor.2d.shared::cluster.global.mbarrier::complete_tx::bytes"
+canonical = "cp.async.bulk.tensor.2d.shared::cluster.global.mbarrier::complete_tx::bytes"
+profile = "hopper"
+instruction = "cp.async.bulk.tensor.2d.shared::cluster.global.mbarrier::complete_tx::bytes [tile],[%rd0,{0,0}],[gate];"
+semantics = "lean/Ptx/Hopper/Thread.lean"
+regression = "hopper_unmodeled_variants_and_operands_fail_closed"
+paper_mapping = "unconfirmed"
+limits = "PTX 8.0 sm_90a, fixed shared CTA barrier/proxy/TMA2D or m64n8k16 f32/f16 WGMMA profile. No cluster execution or Hopper hardware evidence; physical descriptor/runtime and general weak/proxy correspondence remain open. Descriptor is a u64 operand; signed 32-bit coordinates, fixed supported tensor-map layout."
+
+[[forms]]
+opcode = "cp.async.ca.shared.global"
+canonical = "cp.async.ca.shared.global"
+profile = "ampere"
+instruction = "cp.async.ca.shared.global [tile],[%rd0],16;"
+semantics = "lean/Ptx/Ampere/Thread.lean"
+regression = "ampere_copy_rejects_unmodeled_variants_types_counts_and_target"
+paper_mapping = "unconfirmed"
+limits = "Fixed Ampere form only; no optional operands, general layouts or LLVM/Triton lowering claim. Exact-real tensor fragments do not prove IEEE execution equivalence. ca size 4/8/16, cg size 16; source-size/zero-fill/cache hints unsupported."
+
+[[forms]]
+opcode = "cp.async.cg.shared.global"
+canonical = "cp.async.cg.shared.global"
+profile = "ampere"
+instruction = "cp.async.cg.shared.global [tile],[%rd0],16;"
+semantics = "lean/Ptx/Ampere/Thread.lean"
+regression = "ampere_copy_rejects_unmodeled_variants_types_counts_and_target"
+paper_mapping = "unconfirmed"
+limits = "Fixed Ampere form only; no optional operands, general layouts or LLVM/Triton lowering claim. Exact-real tensor fragments do not prove IEEE execution equivalence. ca size 4/8/16, cg size 16; source-size/zero-fill/cache hints unsupported."
+
+[[forms]]
+opcode = "cp.async.commit_group"
+canonical = "cp.async.commit_group"
+profile = "ampere"
+instruction = "cp.async.commit_group;"
+semantics = "lean/Ptx/Ampere/Thread.lean"
+regression = "ampere_copy_rejects_unmodeled_variants_types_counts_and_target"
+paper_mapping = "unconfirmed"
+limits = "Fixed Ampere form only; no optional operands, general layouts or LLVM/Triton lowering claim. Exact-real tensor fragments do not prove IEEE execution equivalence."
+
+[[forms]]
+opcode = "cp.async.wait_all"
+canonical = "cp.async.wait_all"
+profile = "ampere"
+instruction = "cp.async.wait_all;"
+semantics = "lean/Ptx/Ampere/Thread.lean"
+regression = "ampere_copy_rejects_unmodeled_variants_types_counts_and_target"
+paper_mapping = "unconfirmed"
+limits = "Fixed Ampere form only; no optional operands, general layouts or LLVM/Triton lowering claim. Exact-real tensor fragments do not prove IEEE execution equivalence."
+
+[[forms]]
+opcode = "cp.async.wait_group"
+canonical = "cp.async.wait_group"
+profile = "ampere"
+instruction = "cp.async.wait_group 0;"
+semantics = "lean/Ptx/Ampere/Thread.lean"
+regression = "ampere_copy_rejects_unmodeled_variants_types_counts_and_target"
+paper_mapping = "unconfirmed"
+limits = "Fixed Ampere form only; no optional operands, general layouts or LLVM/Triton lowering claim. Exact-real tensor fragments do not prove IEEE execution equivalence. Immediate keep count 0..7."
+
+[[forms]]
+opcode = "div.rn.f32"
+canonical = "div.rn.f32"
+profile = "scalar"
+instruction = "div.rn.f32 %f0,%f1,%f2;"
+semantics = "lean/Ptx/Scalar/Thread.lean"
+regression = "float_types_predication_and_unmodeled_qualifiers_are_rejected"
+paper_mapping = "unconfirmed"
+limits = "Finite f32 literals and symbolic exact-real values/fragments; no IEEE rounding, NaN/infinity, bit reinterpretation, tolerance or universal GPU equivalence claim. Zero divisor faults in this finite-real model."
+
+[[forms]]
+opcode = "ex2.approx.f32"
+canonical = "ex2.approx.f32"
+profile = "scalar"
+instruction = "ex2.approx.f32 %f0,%f1;"
+semantics = "lean/Ptx/Scalar/Thread.lean"
+regression = "float_types_predication_and_unmodeled_qualifiers_are_rejected"
+paper_mapping = "unconfirmed"
+limits = "Finite f32 literals and symbolic exact-real values/fragments; no IEEE rounding, NaN/infinity, bit reinterpretation, tolerance or universal GPU equivalence claim. ex2.approx is interpreted as exact real exp(log(2)*x)."
+
+[[forms]]
+opcode = "fence.proxy.async.shared::cta"
+canonical = "fence.proxy.async.shared::cta"
+profile = "hopper"
+instruction = "fence.proxy.async.shared::cta;"
+semantics = "lean/Ptx/Hopper/Thread.lean"
+regression = "hopper_unmodeled_variants_and_operands_fail_closed"
+paper_mapping = "unconfirmed"
+limits = "PTX 8.0 sm_90a, fixed shared CTA barrier/proxy/TMA2D or m64n8k16 f32/f16 WGMMA profile. No cluster execution or Hopper hardware evidence; physical descriptor/runtime and general weak/proxy correspondence remain open."
+
+[[forms]]
+opcode = "fma.rn.f32"
+canonical = "fma.rn.f32"
+profile = "scalar"
+instruction = "fma.rn.f32 %f0,%f1,%f2,%f3;"
+semantics = "lean/Ptx/Scalar/Thread.lean"
+regression = "float_types_predication_and_unmodeled_qualifiers_are_rejected"
+paper_mapping = "unconfirmed"
+limits = "Finite f32 literals and symbolic exact-real values/fragments; no IEEE rounding, NaN/infinity, bit reinterpretation, tolerance or universal GPU equivalence claim."
+
+[[forms]]
+opcode = "ld.global.b32"
+canonical = "ld.global.b32"
+profile = "ampere"
+instruction = "ld.global.b32 %a0,[64];"
+semantics = "lean/Ptx/Ampere/Thread.lean"
+regression = "mma_probe_preserves_vectors_aliases_and_source_slots"
+paper_mapping = "unconfirmed"
+limits = "Fixed Ampere form only; no optional operands, general layouts or LLVM/Triton lowering claim. Exact-real tensor fragments do not prove IEEE execution equivalence."
+
+[[forms]]
+opcode = "ld.global.f32"
+canonical = "ld.global.f32"
+profile = "scalar"
+instruction = "ld.global.f32 %f0,[64];"
+semantics = "lean/Ptx/Scalar/Thread.lean"
+regression = "float_types_predication_and_unmodeled_qualifiers_are_rejected"
+paper_mapping = "unconfirmed"
+limits = "Finite f32 literals and symbolic exact-real values/fragments; no IEEE rounding, NaN/infinity, bit reinterpretation, tolerance or universal GPU equivalence claim."
+
+[[forms]]
+opcode = "ld.global.u32"
+canonical = "ld.global.u32"
+profile = "integer"
+instruction = "ld.global.u32 %r0,[64];"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "rejects_register_class_parameter_address_and_width_confusion"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "ld.param.u32"
+canonical = "ld.param.u32"
+profile = "integer"
+instruction = "ld.param.u32 %r0,[X];"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "rejects_register_class_parameter_address_and_width_confusion"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "ld.param.u64"
+canonical = "ld.param.u64"
+profile = "integer"
+instruction = "ld.param.u64 %rd0,[P];"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "rejects_register_class_parameter_address_and_width_confusion"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "ld.shared.b32"
+canonical = "ld.shared.b32"
+profile = "ampere"
+instruction = "ld.shared.b32 %a0,[64];"
+semantics = "lean/Ptx/Ampere/Thread.lean"
+regression = "mma_probe_preserves_vectors_aliases_and_source_slots"
+paper_mapping = "unconfirmed"
+limits = "Fixed Ampere form only; no optional operands, general layouts or LLVM/Triton lowering claim. Exact-real tensor fragments do not prove IEEE execution equivalence."
+
+[[forms]]
+opcode = "ld.shared.f32"
+canonical = "ld.shared.f32"
+profile = "scalar"
+instruction = "ld.shared.f32 %f0,[64];"
+semantics = "lean/Ptx/Scalar/Thread.lean"
+regression = "float_types_predication_and_unmodeled_qualifiers_are_rejected"
+paper_mapping = "unconfirmed"
+limits = "Finite f32 literals and symbolic exact-real values/fragments; no IEEE rounding, NaN/infinity, bit reinterpretation, tolerance or universal GPU equivalence claim."
+
+[[forms]]
+opcode = "ld.shared.u32"
+canonical = "ld.shared.u32"
+profile = "integer"
+instruction = "ld.shared.u32 %r0,[64];"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "rejects_register_class_parameter_address_and_width_confusion"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "max.f32"
+canonical = "max.f32"
+profile = "scalar"
+instruction = "max.f32 %f0,%f1,%f2;"
+semantics = "lean/Ptx/Scalar/Thread.lean"
+regression = "float_types_predication_and_unmodeled_qualifiers_are_rejected"
+paper_mapping = "unconfirmed"
+limits = "Finite f32 literals and symbolic exact-real values/fragments; no IEEE rounding, NaN/infinity, bit reinterpretation, tolerance or universal GPU equivalence claim."
+
+[[forms]]
+opcode = "mbarrier.arrive.expect_tx.release.cta.shared::cta.b64"
+canonical = "mbarrier.arrive.expect_tx.release.cta.shared::cta.b64"
+profile = "hopper"
+instruction = "mbarrier.arrive.expect_tx.release.cta.shared::cta.b64 _,[gate],16;"
+semantics = "lean/Ptx/Hopper/Thread.lean"
+regression = "hopper_unmodeled_variants_and_operands_fail_closed"
+paper_mapping = "unconfirmed"
+limits = "PTX 8.0 sm_90a, fixed shared CTA barrier/proxy/TMA2D or m64n8k16 f32/f16 WGMMA profile. No cluster execution or Hopper hardware evidence; physical descriptor/runtime and general weak/proxy correspondence remain open."
+
+[[forms]]
+opcode = "mbarrier.complete_tx.relaxed.cta.shared::cta.b64"
+canonical = "mbarrier.complete_tx.relaxed.cta.shared::cta.b64"
+profile = "hopper"
+instruction = "mbarrier.complete_tx.relaxed.cta.shared::cta.b64 [gate],16;"
+semantics = "lean/Ptx/Hopper/Thread.lean"
+regression = "hopper_unmodeled_variants_and_operands_fail_closed"
+paper_mapping = "unconfirmed"
+limits = "PTX 8.0 sm_90a, fixed shared CTA barrier/proxy/TMA2D or m64n8k16 f32/f16 WGMMA profile. No cluster execution or Hopper hardware evidence; physical descriptor/runtime and general weak/proxy correspondence remain open."
+
+[[forms]]
+opcode = "mbarrier.init.shared::cta.b64"
+canonical = "mbarrier.init.shared::cta.b64"
+profile = "hopper"
+instruction = "mbarrier.init.shared::cta.b64 [gate],1;"
+semantics = "lean/Ptx/Hopper/Thread.lean"
+regression = "hopper_unmodeled_variants_and_operands_fail_closed"
+paper_mapping = "unconfirmed"
+limits = "PTX 8.0 sm_90a, fixed shared CTA barrier/proxy/TMA2D or m64n8k16 f32/f16 WGMMA profile. No cluster execution or Hopper hardware evidence; physical descriptor/runtime and general weak/proxy correspondence remain open."
+
+[[forms]]
+opcode = "mbarrier.inval.shared::cta.b64"
+canonical = "mbarrier.inval.shared::cta.b64"
+profile = "hopper"
+instruction = "mbarrier.inval.shared::cta.b64 [gate];"
+semantics = "lean/Ptx/Hopper/Thread.lean"
+regression = "hopper_unmodeled_variants_and_operands_fail_closed"
+paper_mapping = "unconfirmed"
+limits = "PTX 8.0 sm_90a, fixed shared CTA barrier/proxy/TMA2D or m64n8k16 f32/f16 WGMMA profile. No cluster execution or Hopper hardware evidence; physical descriptor/runtime and general weak/proxy correspondence remain open."
+
+[[forms]]
+opcode = "mbarrier.try_wait.parity.acquire.cta.shared::cta.b64"
+canonical = "mbarrier.try_wait.parity.acquire.cta.shared::cta.b64"
+profile = "hopper"
+instruction = "mbarrier.try_wait.parity.acquire.cta.shared::cta.b64 %p,[gate],0;"
+semantics = "lean/Ptx/Hopper/Thread.lean"
+regression = "hopper_unmodeled_variants_and_operands_fail_closed"
+paper_mapping = "unconfirmed"
+limits = "PTX 8.0 sm_90a, fixed shared CTA barrier/proxy/TMA2D or m64n8k16 f32/f16 WGMMA profile. No cluster execution or Hopper hardware evidence; physical descriptor/runtime and general weak/proxy correspondence remain open. No optional suspend-time hint."
+
+[[forms]]
+opcode = "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"
+canonical = "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"
+profile = "ampere"
+instruction = "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 {%f0,%f1,%f2,%f3},{%a0,%a1,%a2,%a3},{%b0,%b1},{%f0,%f1,%f2,%f3};"
+semantics = "lean/Ptx/Ampere/Thread.lean"
+regression = "mma_fails_closed_on_shape_type_vector_and_qualifier_changes"
+paper_mapping = "unconfirmed"
+limits = "Fixed Ampere form only; no optional operands, general layouts or LLVM/Triton lowering claim. Exact-real tensor fragments do not prove IEEE execution equivalence. m16n8k16 row/col f16 inputs, f32 accumulation, distinct four-register destination."
+
+[[forms]]
+opcode = "mov.f32"
+canonical = "mov.f32"
+profile = "scalar"
+instruction = "mov.f32 %f0,0f3f800000;"
+semantics = "lean/Ptx/Scalar/Thread.lean"
+regression = "float_types_predication_and_unmodeled_qualifiers_are_rejected"
+paper_mapping = "unconfirmed"
+limits = "Finite f32 literals and symbolic exact-real values/fragments; no IEEE rounding, NaN/infinity, bit reinterpretation, tolerance or universal GPU equivalence claim."
+
+[[forms]]
+opcode = "mov.u32"
+canonical = "mov.u32"
+profile = "integer"
+instruction = "mov.u32 %r0,1;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "special_coordinates_reject_unmodeled_forms_and_widths"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness. mov.u32 can read supported tid/ctaid/ntid components. Physical launch bounds and broader special registers remain separate/unimplemented."
+
+[[forms]]
+opcode = "mov.u64"
+canonical = "mov.u64"
+profile = "integer"
+instruction = "mov.u64 %rd0,64;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "special_coordinates_reject_unmodeled_forms_and_widths"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness. mov.u32 can read supported tid/ctaid/ntid components. Physical launch bounds and broader special registers remain separate/unimplemented."
+
+[[forms]]
+opcode = "mul.lo.u32"
+canonical = "mul.lo.u32"
+profile = "integer"
+instruction = "mul.lo.u32 %r0,%r1,1;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "wide_multiply_preserves_declared_types_and_both_widths"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "mul.lo.u64"
+canonical = "mul.lo.u64"
+profile = "integer"
+instruction = "mul.lo.u64 %rd0,%rd1,1;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "wide_multiply_preserves_declared_types_and_both_widths"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "mul.rn.f32"
+canonical = "mul.rn.f32"
+profile = "scalar"
+instruction = "mul.rn.f32 %f0,%f1,%f2;"
+semantics = "lean/Ptx/Scalar/Thread.lean"
+regression = "float_types_predication_and_unmodeled_qualifiers_are_rejected"
+paper_mapping = "unconfirmed"
+limits = "Finite f32 literals and symbolic exact-real values/fragments; no IEEE rounding, NaN/infinity, bit reinterpretation, tolerance or universal GPU equivalence claim."
+
+[[forms]]
+opcode = "mul.wide.u32"
+canonical = "mul.wide.u32"
+profile = "integer"
+instruction = "mul.wide.u32 %rd0,%r1,1;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "wide_multiply_preserves_declared_types_and_both_widths"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "ret"
+canonical = "ret"
+profile = "integer"
+instruction = "ret;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "fail_closed"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "setp.eq.u32"
+canonical = "setp.eq.u32"
+profile = "integer"
+instruction = "setp.eq.u32 %p,%r0,%r1;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "rejects_register_class_parameter_address_and_width_confusion"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "setp.ge.u32"
+canonical = "setp.ge.u32"
+profile = "integer"
+instruction = "setp.ge.u32 %p,%r0,%r1;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "rejects_register_class_parameter_address_and_width_confusion"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "setp.gt.f32"
+canonical = "setp.gt.f32"
+profile = "scalar"
+instruction = "setp.gt.f32 %p,%f0,%f1;"
+semantics = "lean/Ptx/Scalar/Thread.lean"
+regression = "float_top1_comparison_rejects_unmodeled_forms_and_register_classes"
+paper_mapping = "unconfirmed"
+limits = "Finite f32 literals and symbolic exact-real values/fragments; no IEEE rounding, NaN/infinity, bit reinterpretation, tolerance or universal GPU equivalence claim."
+
+[[forms]]
+opcode = "setp.lt.u32"
+canonical = "setp.lt.u32"
+profile = "integer"
+instruction = "setp.lt.u32 %p,%r0,%r1;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "rejects_register_class_parameter_address_and_width_confusion"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "shfl.sync.bfly.b32"
+canonical = "shfl.sync.bfly.b32"
+profile = "shuffle"
+instruction = "shfl.sync.bfly.b32 %r0|%p,%r1,1,31,0xffffffff;"
+semantics = "lean/Ptx/Shuffle/Thread.lean"
+regression = "shuffle_rejects_unmodeled_forms_widths_and_predication"
+paper_mapping = "unconfirmed"
+limits = "b32 up/down/bfly/idx, optional predicate destination, u32 dynamic b/c/membermask; no implicit memory fence. Async/tensor composition is unsupported; source participation and agreement remain distinct obligations."
+
+[[forms]]
+opcode = "shfl.sync.down.b32"
+canonical = "shfl.sync.down.b32"
+profile = "shuffle"
+instruction = "shfl.sync.down.b32 %r0|%p,%r1,1,31,0xffffffff;"
+semantics = "lean/Ptx/Shuffle/Thread.lean"
+regression = "shuffle_rejects_unmodeled_forms_widths_and_predication"
+paper_mapping = "unconfirmed"
+limits = "b32 up/down/bfly/idx, optional predicate destination, u32 dynamic b/c/membermask; no implicit memory fence. Async/tensor composition is unsupported; source participation and agreement remain distinct obligations."
+
+[[forms]]
+opcode = "shfl.sync.idx.b32"
+canonical = "shfl.sync.idx.b32"
+profile = "shuffle"
+instruction = "shfl.sync.idx.b32 %r0|%p,%r1,1,31,0xffffffff;"
+semantics = "lean/Ptx/Shuffle/Thread.lean"
+regression = "shuffle_rejects_unmodeled_forms_widths_and_predication"
+paper_mapping = "unconfirmed"
+limits = "b32 up/down/bfly/idx, optional predicate destination, u32 dynamic b/c/membermask; no implicit memory fence. Async/tensor composition is unsupported; source participation and agreement remain distinct obligations."
+
+[[forms]]
+opcode = "shfl.sync.up.b32"
+canonical = "shfl.sync.up.b32"
+profile = "shuffle"
+instruction = "shfl.sync.up.b32 %r0|%p,%r1,1,31,0xffffffff;"
+semantics = "lean/Ptx/Shuffle/Thread.lean"
+regression = "shuffle_rejects_unmodeled_forms_widths_and_predication"
+paper_mapping = "unconfirmed"
+limits = "b32 up/down/bfly/idx, optional predicate destination, u32 dynamic b/c/membermask; no implicit memory fence. Async/tensor composition is unsupported; source participation and agreement remain distinct obligations."
+
+[[forms]]
+opcode = "shr.u32"
+canonical = "shr.u32"
+profile = "integer"
+instruction = "shr.u32 %r0,%r1,1;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "logical_right_shift_has_a_u32_count_and_matching_value_widths"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness. Unsigned u32/u64 value with u32 count; count >= width returns zero. Signed shifts unsupported."
+
+[[forms]]
+opcode = "shr.u64"
+canonical = "shr.u64"
+profile = "integer"
+instruction = "shr.u64 %rd0,%rd1,1;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "logical_right_shift_has_a_u32_count_and_matching_value_widths"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness. Unsigned u32/u64 value with u32 count; count >= width returns zero. Signed shifts unsupported."
+
+[[forms]]
+opcode = "st.global.f32"
+canonical = "st.global.f32"
+profile = "scalar"
+instruction = "st.global.f32 [64],%f0;"
+semantics = "lean/Ptx/Scalar/Thread.lean"
+regression = "float_types_predication_and_unmodeled_qualifiers_are_rejected"
+paper_mapping = "unconfirmed"
+limits = "Finite f32 literals and symbolic exact-real values/fragments; no IEEE rounding, NaN/infinity, bit reinterpretation, tolerance or universal GPU equivalence claim."
+
+[[forms]]
+opcode = "st.global.u32"
+canonical = "st.global.u32"
+profile = "integer"
+instruction = "st.global.u32 [64],%r0;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "rejects_register_class_parameter_address_and_width_confusion"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "st.shared.f32"
+canonical = "st.shared.f32"
+profile = "scalar"
+instruction = "st.shared.f32 [64],%f0;"
+semantics = "lean/Ptx/Scalar/Thread.lean"
+regression = "float_types_predication_and_unmodeled_qualifiers_are_rejected"
+paper_mapping = "unconfirmed"
+limits = "Finite f32 literals and symbolic exact-real values/fragments; no IEEE rounding, NaN/infinity, bit reinterpretation, tolerance or universal GPU equivalence claim."
+
+[[forms]]
+opcode = "st.shared.u32"
+canonical = "st.shared.u32"
+profile = "integer"
+instruction = "st.shared.u32 [64],%r0;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "rejects_register_class_parameter_address_and_width_confusion"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "sub.rn.f32"
+canonical = "sub.rn.f32"
+profile = "scalar"
+instruction = "sub.rn.f32 %f0,%f1,%f2;"
+semantics = "lean/Ptx/Scalar/Thread.lean"
+regression = "float_types_predication_and_unmodeled_qualifiers_are_rejected"
+paper_mapping = "unconfirmed"
+limits = "Finite f32 literals and symbolic exact-real values/fragments; no IEEE rounding, NaN/infinity, bit reinterpretation, tolerance or universal GPU equivalence claim."
+
+[[forms]]
+opcode = "sub.u32"
+canonical = "sub.u32"
+profile = "integer"
+instruction = "sub.u32 %r0,%r1,1;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "wide_multiply_preserves_declared_types_and_both_widths"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "sub.u64"
+canonical = "sub.u64"
+profile = "integer"
+instruction = "sub.u64 %rd0,%rd1,1;"
+semantics = "lean/Ptx/ISA/TypedSemantics.lean"
+regression = "wide_multiply_preserves_declared_types_and_both_widths"
+paper_mapping = "unconfirmed"
+limits = "Fixed spelling, declared operand widths and supported addresses only; general predication and other qualifiers are rejected. Typing does not establish ISA UB freedom or kernel correctness."
+
+[[forms]]
+opcode = "wgmma.commit_group.sync.aligned"
+canonical = "wgmma.commit_group.sync.aligned"
+profile = "hopper"
+instruction = "wgmma.commit_group.sync.aligned;"
+semantics = "lean/Ptx/Hopper/Thread.lean"
+regression = "hopper_unmodeled_variants_and_operands_fail_closed"
+paper_mapping = "unconfirmed"
+limits = "PTX 8.0 sm_90a, fixed shared CTA barrier/proxy/TMA2D or m64n8k16 f32/f16 WGMMA profile. No cluster execution or Hopper hardware evidence; physical descriptor/runtime and general weak/proxy correspondence remain open."
+
+[[forms]]
+opcode = "wgmma.fence.sync.aligned"
+canonical = "wgmma.fence.sync.aligned"
+profile = "hopper"
+instruction = "wgmma.fence.sync.aligned;"
+semantics = "lean/Ptx/Hopper/Thread.lean"
+regression = "hopper_unmodeled_variants_and_operands_fail_closed"
+paper_mapping = "unconfirmed"
+limits = "PTX 8.0 sm_90a, fixed shared CTA barrier/proxy/TMA2D or m64n8k16 f32/f16 WGMMA profile. No cluster execution or Hopper hardware evidence; physical descriptor/runtime and general weak/proxy correspondence remain open."
+
+[[forms]]
+opcode = "wgmma.mma_async.sync.aligned.m64n8k16.f32.f16.f16"
+canonical = "wgmma.mma_async.sync.aligned.m64n8k16.f32.f16.f16"
+profile = "hopper"
+instruction = "wgmma.mma_async.sync.aligned.m64n8k16.f32.f16.f16 {%f0,%f1,%f2,%f3},%ad,%bd,1,1,1,0,0;"
+semantics = "lean/Ptx/Hopper/WgmmaThread.lean"
+regression = "hopper_unmodeled_variants_and_operands_fail_closed"
+paper_mapping = "unconfirmed"
+limits = "PTX 8.0 sm_90a, fixed shared CTA barrier/proxy/TMA2D or m64n8k16 f32/f16 WGMMA profile. No cluster execution or Hopper hardware evidence; physical descriptor/runtime and general weak/proxy correspondence remain open. Four distinct accumulators; scale-d predicate/0/1, scales 1/1, transposes 0/0."
+
+[[forms]]
+opcode = "wgmma.wait_group.sync.aligned"
+canonical = "wgmma.wait_group.sync.aligned"
+profile = "hopper"
+instruction = "wgmma.wait_group.sync.aligned 0;"
+semantics = "lean/Ptx/Hopper/Thread.lean"
+regression = "hopper_unmodeled_variants_and_operands_fail_closed"
+paper_mapping = "unconfirmed"
+limits = "PTX 8.0 sm_90a, fixed shared CTA barrier/proxy/TMA2D or m64n8k16 f32/f16 WGMMA profile. No cluster execution or Hopper hardware evidence; physical descriptor/runtime and general weak/proxy correspondence remain open. Immediate keep count 0..7."
+
+[profiles.ordered]
+version = "7.0"
+target = "sm_70"
+declarations = ".reg .u32 %r0;\n.reg .u32 %r1;\n.reg .u64 %rd;"
+
+[[forms]]
+opcode = "ld.relaxed.cta.global.u32"
+canonical = "ld.relaxed.cta.global.u32"
+profile = "ordered"
+instruction = "ld.relaxed.cta.global.u32 %r0,[64];"
+semantics = "lean/Ptx/Ordered/Thread.lean"
+regression = "ordered_memory_rejects_unmodeled_qualifiers_widths_and_operands"
+paper_mapping = "unconfirmed"
+limits = "Fixed global u32 generic-proxy ordered/scalar layer; scopes cta/gpu/sys within a single-device launch. Order/scope tags and actual source steps are retained. Direct scoped release/acquire relations and ordinary memory predicates are explicit; a complete source/memory/observer witness is proved for arbitrary initial bytes, and universal completed-source output/frame correctness is proved for the fixed two-thread fixture under represented-zero flag initialization with arbitrary finite polling/oracles/order/RF/coherence. Full ISA correspondence and termination remain open. Fences, ordered atomics, host/multi-device sys and shuffle/async/tensor composition are unsupported."
+
+[[forms]]
+opcode = "ld.relaxed.gpu.global.u32"
+canonical = "ld.relaxed.gpu.global.u32"
+profile = "ordered"
+instruction = "ld.relaxed.gpu.global.u32 %r0,[64];"
+semantics = "lean/Ptx/Ordered/Thread.lean"
+regression = "ordered_memory_rejects_unmodeled_qualifiers_widths_and_operands"
+paper_mapping = "unconfirmed"
+limits = "Fixed global u32 generic-proxy ordered/scalar layer; scopes cta/gpu/sys within a single-device launch. Order/scope tags and actual source steps are retained. Direct scoped release/acquire relations and ordinary memory predicates are explicit; a complete source/memory/observer witness is proved for arbitrary initial bytes, and universal completed-source output/frame correctness is proved for the fixed two-thread fixture under represented-zero flag initialization with arbitrary finite polling/oracles/order/RF/coherence. Full ISA correspondence and termination remain open. Fences, ordered atomics, host/multi-device sys and shuffle/async/tensor composition are unsupported."
+
+[[forms]]
+opcode = "ld.relaxed.sys.global.u32"
+canonical = "ld.relaxed.sys.global.u32"
+profile = "ordered"
+instruction = "ld.relaxed.sys.global.u32 %r0,[64];"
+semantics = "lean/Ptx/Ordered/Thread.lean"
+regression = "ordered_memory_rejects_unmodeled_qualifiers_widths_and_operands"
+paper_mapping = "unconfirmed"
+limits = "Fixed global u32 generic-proxy ordered/scalar layer; scopes cta/gpu/sys within a single-device launch. Order/scope tags and actual source steps are retained. Direct scoped release/acquire relations and ordinary memory predicates are explicit; a complete source/memory/observer witness is proved for arbitrary initial bytes, and universal completed-source output/frame correctness is proved for the fixed two-thread fixture under represented-zero flag initialization with arbitrary finite polling/oracles/order/RF/coherence. Full ISA correspondence and termination remain open. Fences, ordered atomics, host/multi-device sys and shuffle/async/tensor composition are unsupported."
+
+[[forms]]
+opcode = "ld.acquire.cta.global.u32"
+canonical = "ld.acquire.cta.global.u32"
+profile = "ordered"
+instruction = "ld.acquire.cta.global.u32 %r0,[64];"
+semantics = "lean/Ptx/Ordered/Thread.lean"
+regression = "ordered_memory_rejects_unmodeled_qualifiers_widths_and_operands"
+paper_mapping = "unconfirmed"
+limits = "Fixed global u32 generic-proxy ordered/scalar layer; scopes cta/gpu/sys within a single-device launch. Order/scope tags and actual source steps are retained. Direct scoped release/acquire relations and ordinary memory predicates are explicit; a complete source/memory/observer witness is proved for arbitrary initial bytes, and universal completed-source output/frame correctness is proved for the fixed two-thread fixture under represented-zero flag initialization with arbitrary finite polling/oracles/order/RF/coherence. Full ISA correspondence and termination remain open. Fences, ordered atomics, host/multi-device sys and shuffle/async/tensor composition are unsupported."
+
+[[forms]]
+opcode = "ld.acquire.gpu.global.u32"
+canonical = "ld.acquire.gpu.global.u32"
+profile = "ordered"
+instruction = "ld.acquire.gpu.global.u32 %r0,[64];"
+semantics = "lean/Ptx/Ordered/Thread.lean"
+regression = "ordered_memory_rejects_unmodeled_qualifiers_widths_and_operands"
+paper_mapping = "unconfirmed"
+limits = "Fixed global u32 generic-proxy ordered/scalar layer; scopes cta/gpu/sys within a single-device launch. Order/scope tags and actual source steps are retained. Direct scoped release/acquire relations and ordinary memory predicates are explicit; a complete source/memory/observer witness is proved for arbitrary initial bytes, and universal completed-source output/frame correctness is proved for the fixed two-thread fixture under represented-zero flag initialization with arbitrary finite polling/oracles/order/RF/coherence. Full ISA correspondence and termination remain open. Fences, ordered atomics, host/multi-device sys and shuffle/async/tensor composition are unsupported."
+
+[[forms]]
+opcode = "ld.acquire.sys.global.u32"
+canonical = "ld.acquire.sys.global.u32"
+profile = "ordered"
+instruction = "ld.acquire.sys.global.u32 %r0,[64];"
+semantics = "lean/Ptx/Ordered/Thread.lean"
+regression = "ordered_memory_rejects_unmodeled_qualifiers_widths_and_operands"
+paper_mapping = "unconfirmed"
+limits = "Fixed global u32 generic-proxy ordered/scalar layer; scopes cta/gpu/sys within a single-device launch. Order/scope tags and actual source steps are retained. Direct scoped release/acquire relations and ordinary memory predicates are explicit; a complete source/memory/observer witness is proved for arbitrary initial bytes, and universal completed-source output/frame correctness is proved for the fixed two-thread fixture under represented-zero flag initialization with arbitrary finite polling/oracles/order/RF/coherence. Full ISA correspondence and termination remain open. Fences, ordered atomics, host/multi-device sys and shuffle/async/tensor composition are unsupported."
+
+[[forms]]
+opcode = "st.relaxed.cta.global.u32"
+canonical = "st.relaxed.cta.global.u32"
+profile = "ordered"
+instruction = "st.relaxed.cta.global.u32 [64],%r0;"
+semantics = "lean/Ptx/Ordered/Thread.lean"
+regression = "ordered_memory_rejects_unmodeled_qualifiers_widths_and_operands"
+paper_mapping = "unconfirmed"
+limits = "Fixed global u32 generic-proxy ordered/scalar layer; scopes cta/gpu/sys within a single-device launch. Order/scope tags and actual source steps are retained. Direct scoped release/acquire relations and ordinary memory predicates are explicit; a complete source/memory/observer witness is proved for arbitrary initial bytes, and universal completed-source output/frame correctness is proved for the fixed two-thread fixture under represented-zero flag initialization with arbitrary finite polling/oracles/order/RF/coherence. Full ISA correspondence and termination remain open. Fences, ordered atomics, host/multi-device sys and shuffle/async/tensor composition are unsupported."
+
+[[forms]]
+opcode = "st.relaxed.gpu.global.u32"
+canonical = "st.relaxed.gpu.global.u32"
+profile = "ordered"
+instruction = "st.relaxed.gpu.global.u32 [64],%r0;"
+semantics = "lean/Ptx/Ordered/Thread.lean"
+regression = "ordered_memory_rejects_unmodeled_qualifiers_widths_and_operands"
+paper_mapping = "unconfirmed"
+limits = "Fixed global u32 generic-proxy ordered/scalar layer; scopes cta/gpu/sys within a single-device launch. Order/scope tags and actual source steps are retained. Direct scoped release/acquire relations and ordinary memory predicates are explicit; a complete source/memory/observer witness is proved for arbitrary initial bytes, and universal completed-source output/frame correctness is proved for the fixed two-thread fixture under represented-zero flag initialization with arbitrary finite polling/oracles/order/RF/coherence. Full ISA correspondence and termination remain open. Fences, ordered atomics, host/multi-device sys and shuffle/async/tensor composition are unsupported."
+
+[[forms]]
+opcode = "st.relaxed.sys.global.u32"
+canonical = "st.relaxed.sys.global.u32"
+profile = "ordered"
+instruction = "st.relaxed.sys.global.u32 [64],%r0;"
+semantics = "lean/Ptx/Ordered/Thread.lean"
+regression = "ordered_memory_rejects_unmodeled_qualifiers_widths_and_operands"
+paper_mapping = "unconfirmed"
+limits = "Fixed global u32 generic-proxy ordered/scalar layer; scopes cta/gpu/sys within a single-device launch. Order/scope tags and actual source steps are retained. Direct scoped release/acquire relations and ordinary memory predicates are explicit; a complete source/memory/observer witness is proved for arbitrary initial bytes, and universal completed-source output/frame correctness is proved for the fixed two-thread fixture under represented-zero flag initialization with arbitrary finite polling/oracles/order/RF/coherence. Full ISA correspondence and termination remain open. Fences, ordered atomics, host/multi-device sys and shuffle/async/tensor composition are unsupported."
+
+[[forms]]
+opcode = "st.release.cta.global.u32"
+canonical = "st.release.cta.global.u32"
+profile = "ordered"
+instruction = "st.release.cta.global.u32 [64],%r0;"
+semantics = "lean/Ptx/Ordered/Thread.lean"
+regression = "ordered_memory_rejects_unmodeled_qualifiers_widths_and_operands"
+paper_mapping = "unconfirmed"
+limits = "Fixed global u32 generic-proxy ordered/scalar layer; scopes cta/gpu/sys within a single-device launch. Order/scope tags and actual source steps are retained. Direct scoped release/acquire relations and ordinary memory predicates are explicit; a complete source/memory/observer witness is proved for arbitrary initial bytes, and universal completed-source output/frame correctness is proved for the fixed two-thread fixture under represented-zero flag initialization with arbitrary finite polling/oracles/order/RF/coherence. Full ISA correspondence and termination remain open. Fences, ordered atomics, host/multi-device sys and shuffle/async/tensor composition are unsupported."
+
+[[forms]]
+opcode = "st.release.gpu.global.u32"
+canonical = "st.release.gpu.global.u32"
+profile = "ordered"
+instruction = "st.release.gpu.global.u32 [64],%r0;"
+semantics = "lean/Ptx/Ordered/Thread.lean"
+regression = "ordered_memory_rejects_unmodeled_qualifiers_widths_and_operands"
+paper_mapping = "unconfirmed"
+limits = "Fixed global u32 generic-proxy ordered/scalar layer; scopes cta/gpu/sys within a single-device launch. Order/scope tags and actual source steps are retained. Direct scoped release/acquire relations and ordinary memory predicates are explicit; a complete source/memory/observer witness is proved for arbitrary initial bytes, and universal completed-source output/frame correctness is proved for the fixed two-thread fixture under represented-zero flag initialization with arbitrary finite polling/oracles/order/RF/coherence. Full ISA correspondence and termination remain open. Fences, ordered atomics, host/multi-device sys and shuffle/async/tensor composition are unsupported."
+
+[[forms]]
+opcode = "st.release.sys.global.u32"
+canonical = "st.release.sys.global.u32"
+profile = "ordered"
+instruction = "st.release.sys.global.u32 [64],%r0;"
+semantics = "lean/Ptx/Ordered/Thread.lean"
+regression = "ordered_memory_rejects_unmodeled_qualifiers_widths_and_operands"
+paper_mapping = "unconfirmed"
+limits = "Fixed global u32 generic-proxy ordered/scalar layer; scopes cta/gpu/sys within a single-device launch. Order/scope tags and actual source steps are retained. Direct scoped release/acquire relations and ordinary memory predicates are explicit; a complete source/memory/observer witness is proved for arbitrary initial bytes, and universal completed-source output/frame correctness is proved for the fixed two-thread fixture under represented-zero flag initialization with arbitrary finite polling/oracles/order/RF/coherence. Full ISA correspondence and termination remain open. Fences, ordered atomics, host/multi-device sys and shuffle/async/tensor composition are unsupported."

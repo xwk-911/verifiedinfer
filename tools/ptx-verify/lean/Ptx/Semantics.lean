@@ -1,4 +1,4 @@
-import Std
+import Ptx.ISA.Syntax
 
 deriving instance DecidableEq for Except
 
@@ -18,28 +18,6 @@ namespace Ptx
     (some value).toExcept error = .ok value := rfl
 @[simp] theorem option_toExcept_none (error : ε) :
     (none : Option α).toExcept error = .error error := rfl
-
-inductive Space | global | shared deriving Repr, DecidableEq, BEq
-deriving instance ReflBEq, LawfulBEq for Space
-inductive Operand | imm (n : Nat) | reg (r : String) | tid deriving Repr, DecidableEq
-structure Address where
-  base : Operand
-  offset : Nat := 0
-  deriving Repr, DecidableEq
-inductive BinOp | add | sub | mul deriving Repr, DecidableEq
-inductive Cmp | lt | ge | eq deriving Repr, DecidableEq
-inductive Instr where
-  | mov (width : Nat) (dst : String) (a : Operand)
-  | param (width : Nat) (dst name : String)
-  | bin (op : BinOp) (inputWidth outputWidth : Nat) (dst : String) (a b : Operand)
-  | setp (cmp : Cmp) (dst : String) (a b : Operand)
-  | load (space : Space) (dst : String) (addr : Address)
-  | store (space : Space) (addr : Address) (value : Operand)
-  | branch (pred : String) (positive : Bool) (target : Nat)
-  | jump (target : Nat)
-  | barrier (id : Nat)
-  | ret
-  deriving Repr, DecidableEq
 
 inductive Fault where
   | register (name : String)
@@ -152,6 +130,7 @@ def localStep (params : Bindings) (tid : Nat) (t : Thread) (i : Instr) : Except 
       | .add => x + y
       | .sub => x + 2^iw - y
       | .mul => x * y
+      | .shr => x / 2^(min (wrap 32 y) iw)
     return assign t r (wrap ow v)
   | .setp cmp r a b =>
     let x := wrap 32 (← eval tid t a)

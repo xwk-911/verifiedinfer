@@ -1,0 +1,70 @@
+schema_version = 1
+imports = ["PtxPrototype"]
+overrides = {}
+
+# Empty initially. New entries need name, role, exact Lean statement/type_sha256,
+# purpose, review, affected_vcs and discharge_task. See README.md, Prototype acceptance.
+assumptions = []
+
+[capability_claims]
+legacy-operational-subset = ["Ptx.CopyEvent.completed_output_agreement"]
+typed-ast-and-launch = ["Ptx.ISA.CheckedProgram.instruction_typed", "Ptx.ISA.Geometry.threadIds_cover"]
+oracle-event-execution = ["Ptx.Event.run_sound", "Ptx.Shuffle.run_sound", "Ptx.Ordered.run_sound", "Ptx.Ordered.scalar_well_formed_projection", "Ptx.Kernels.ReleaseAcquireMessage.completed_consumer_events", "Ptx.Kernels.ReleaseAcquireMessage.completed_member_events", "Ptx.Ordered.Client.run_invariants", "Ptx.Ordered.Client.source_actions_run"]
+ptx-memory-model = ["Ptx.Event.unique_writer_visible", "Ptx.Ordered.publish_release_acquire", "Ptx.Ordered.message_passing_value", "Ptx.OrderedTests.direct_release_acquire_synchronizes", "Ptx.Kernels.ReleaseAcquireMessage.nonvacuous", "Ptx.Kernels.ReleaseAcquireMessage.complete_observed_execution", "Ptx.OrderedWitnessTests.stale_payload_source_is_rejected", "Ptx.OrderedWitnessTests.observer_cannot_keep_initial_source", "Ptx.Ordered.release_acquire_of_nonzero_u32", "Ptx.Kernels.ReleaseAcquireMessage.correct", "Ptx.Kernels.ReleaseAcquireMessage.initialized_nonvacuous", "Ptx.Kernels.ReleaseAcquireMessage.correct_and_nonvacuous", "Ptx.OrderedUniversalTests.concrete_complete_legal_execution_exists", "Ptx.OrderedUniversalTests.wrong_completed_source_is_rejected_for_all_memory_choices"]
+synchronized-global-observation = ["Ptx.Event.observer_unique_writer"]
+legacy-event-refinement = ["Ptx.CopyEvent.completed_output_agreement", "Ptx.SharedEvent.completed_output_agreement"]
+atomics-and-shuffle = ["Ptx.AtomicDispatchEvent.correct", "Ptx.Kernels.ShuffleProbe.exported_source_safe", "Ptx.Kernels.ShuffleProbe.exported_kernel_nonvacuous", "Ptx.Kernels.ShuffleProbe.exported_array_verified", "Ptx.ShuffleOutputTests.complete_observed_output_exists_for_all_modes"]
+real-float-semantics = ["Ptx.Scalar.step_integer", "Ptx.ScalarMatmulEvent.correct"]
+ampere-copy-and-mma = ["Ptx.AmpereTiledCorrect.correct", "Ptx.AmpereTiledNonvacuous.nonvacuous"]
+hopper-tma-mbarrier-wgmma = ["Ptx.Kernels.HopperDoubleBuffer.full_value_output_of_run", "Ptx.Kernels.HopperDoubleBuffer.full_value_native_witness"]
+sequential-kernel-composition = ["Ptx.MoePipeline.correct", "Ptx.MoePipeline.nonvacuous"]
+iris-runtime-event-connection = ["Ptx.Kernels.ByteValuePipeline.native_pipeline_closed_adequate", "Ptx.Kernels.HopperDoubleBuffer.full_value_native_witness", "Ptx.Ordered.Client.completed_device_covers_launch", "Ptx.Ordered.Client.host_acquire_removed_loan_requires_completion", "Ptx.IrisOrderedClient.source_wp", "Ptx.IrisOrderedClient.source_borrow_guard_wp", "Ptx.IrisOrderedClient.contract_adequate", "Ptx.Kernels.ReleaseAcquireMessage.Client.native_client_adequate", "Ptx.Kernels.ReleaseAcquireMessage.Client.loans_returned_and_reclaimed", "Ptx.OrderedClientTests.incomplete_source_is_not_success_adequate", "Ptx.OrderedClientTests.missing_host_acquire_is_not_success_adequate"]
+
+[[cases]]
+id = "copy-shared-swap"
+correctness = ["Ptx.CopyEvent.correct", "Ptx.SharedEvent.correct"]
+nonvacuity = ["Ptx.CopyEvent.nonvacuous", "Ptx.SharedEvent.nonvacuous"]
+instances = ["Ptx.CopyEventTests.masked_executed_agreement", "Ptx.SharedEventTests.pair_executed_agreement"]
+scope = "Integer byte-model Copy/SharedSwap under their explicit launch/layout/input preconditions; includes output/frame and complete source/memory/observer witnesses. Full ISA UB, physical allocation, compiler/runtime and observer correspondence remain external boundaries."
+
+[[cases]]
+id = "scalar-matmul"
+correctness = ["Ptx.ScalarMatmulEvent.correct"]
+nonvacuity = ["Ptx.ScalarMatmulEvent.nonvacuous"]
+instances = ["Ptx.ScalarMatmulMemoryTests.legal_execution_observes_twelve"]
+scope = "Parameterized row-major scalar matmul with guarded 2-D indexing and runtime K; exact-real represented f32 model. Includes output/frame, complete source/memory/observer witnesses and zero K. No universal hardware IEEE or bit-equivalence claim."
+
+[[cases]]
+id = "atomic-dispatch"
+correctness = ["Ptx.AtomicDispatchEvent.correct"]
+nonvacuity = ["Ptx.AtomicDispatchEvent.nonvacuous"]
+instances = ["Ptx.AtomicDispatchWitnessTests.both_orders_observe_outputs_and_frame"]
+scope = "Two-CTA dispatch with the supported relaxed GPU-scoped global u32 add; arbitrary admitted ticket order under separated bounded word layouts. Broader atomic qualifiers and complete dispatch/native-value/runtime correspondence remain open."
+
+[[cases]]
+id = "online-flash-attention"
+correctness = ["Ptx.ScalarAttentionEvent.correct"]
+nonvacuity = ["Ptx.ScalarAttentionEvent.nonvacuous"]
+instances = ["Ptx.ScalarAttentionMemoryTests.legal_execution_observes_seven"]
+scope = "Scalar online-attention baseline with explicit represented inputs, scale and output layout; exact-real natural-exp interpretation and empty-key cases. Not optimized FlashAttention or universal hardware ex2/IEEE/logits equivalence."
+
+[[cases]]
+id = "three-kernel-moe"
+correctness = ["Ptx.MoePipeline.correct"]
+nonvacuity = ["Ptx.MoePipeline.nonvacuous"]
+instances = ["Ptx.MoePipelineTests.legal_pipeline"]
+scope = "Normalized two-expert top-1 dense route/experts/combine chain, composed by completed ordinary-memory stream publication. Initial G/X/W representation; later R/H representation derives from prior stages. No concurrent-kernel, top-k>1, packing/capacity or IEEE/runtime claim."
+
+[[cases]]
+id = "ampere-tiled-matmul"
+correctness = ["Ptx.AmpereTiledCorrect.correct"]
+nonvacuity = ["Ptx.AmpereTiledNonvacuous.nonvacuous"]
+instances = ["Ptx.AmpereTiledWitnessMemoryTests.observed_last_result"]
+scope = "Checked canonical tiled-matmul configurations in the current Ampere copy/MMA graph model, including zero K and inactive outputs. Explicit source/barrier/warp/memory/observer witnesses. Native overlaunch and full ISA/runtime/IEEE correspondence remain outside this proof scope."
+
+[[cases]]
+id = "hopper-double-buffer-gemm"
+correctness = ["Ptx.Kernels.HopperDoubleBuffer.full_value_output_of_run"]
+nonvacuity = ["Ptx.Kernels.HopperDoubleBuffer.full_value_native_witness"]
+instances = ["Ptx.HopperZeroValueTests.native_zero_client_has_matrix_and_returned_loans"]
+scope = "Fixed 64x8 output geometry, K up to 2^28 tiles and represented exact-real A/B with supported layouts/retries. Complete native symbolic-byte value/protocol client from initial no-loan state; zero K uses two regions and positive K ten. Full-source closed adequacy retains the whole-map helper. Physical bytes, compiler/runtime, broader weak/proxy realization and Hopper GPU execution remain open."

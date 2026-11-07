@@ -5,6 +5,9 @@ defaultTargets = ["Ptx"]
 [[lean_lib]]
 name = "Ptx"
 
+[[lean_lib]]
+name = "PtxPrototype"
+
 [[require]]
 name = "iris"
 path = "../vendor/iris-lean/Iris"

@@ -1,0 +1,22 @@
+// Negative construct-control fixture. Launch one CTA of 128 threads.
+// Individual oracle-backed traces finish and aligned schedules match, but
+// warp 0's native fence and CTA rendezvous form a control cycle.
+// Assemble/check only; never launch this circular-wait fixture on a GPU.
+.version 8.0
+.target sm_90a
+.address_size 64
+.visible .entry hopper_collective_cycle()
+{
+  .reg .u32 %lane;
+  .reg .pred %leader;
+  mov.u32 %lane, %tid.x;
+  setp.eq.u32 %leader, %lane, 0;
+  @%leader bra collective;
+  bar.sync 0;
+collective:
+  wgmma.fence.sync.aligned;
+  @!%leader bra done;
+  bar.sync 0;
+done:
+  ret;
+}

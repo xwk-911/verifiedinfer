@@ -1,0 +1,171 @@
+// Two shared stages for one 64x8 output tile, K=16*TILES, CTA=(4,8,4).
+// MAP_A: width=128,height=8*TILES,rowStride=256,box=(128,8),f16.
+// MAP_B: width=128,height=TILES,rowStride=256,box=(128,1),f16.
+// Global tensors hold contiguous packed core tiles; C is row-major f32[64][8].
+// Next-stage TMA starts before current WGMMA; CTA barrier 2 closes each
+// consumer phase before later reuse. TILES=0 also returns a zero tile.
+// Typed/assembled target. Full kernel admission, universal correctness,
+// nonvacuity and hardware performance evidence must be established separately.
+.version 8.0
+.target sm_90a
+.address_size 64
+.visible .entry hopper_double_buffer_gemm(.param .u64 MAP_A,.param .u64 MAP_B,.param .u64 C,.param .u32 TILES)
+{
+  .shared .align 8 .b8 gate0[8];
+  .shared .align 8 .b8 gate1[8];
+  .shared .align 16 .b8 a0[2048];
+  .shared .align 16 .b8 b0[256];
+  .shared .align 16 .b8 a1[2048];
+  .shared .align 16 .b8 b1[256];
+  .reg .u64 %mapa;
+  .reg .u64 %mapb;
+  .reg .u64 %out;
+  .reg .u64 %bar0;
+  .reg .u64 %bar1;
+  .reg .u64 %waitbar;
+  .reg .u64 %nextbar;
+  .reg .u64 %copya;
+  .reg .u64 %copyb;
+  .reg .u64 %offset;
+  .reg .b64 %ad;
+  .reg .b64 %bd;
+  .reg .b64 %ad0;
+  .reg .b64 %bd0;
+  .reg .b64 %ad1;
+  .reg .b64 %bd1;
+  .reg .u32 %tiles;
+  .reg .u32 %tile;
+  .reg .u32 %next;
+  .reg .u32 %slot;
+  .reg .u32 %phase0;
+  .reg .u32 %phase1;
+  .reg .u32 %parity;
+  .reg .u32 %ay;
+  .reg .u32 %x;
+  .reg .u32 %y;
+  .reg .u32 %z;
+  .reg .u32 %sum;
+  .reg .u32 %row;
+  .reg .u32 %col;
+  .reg .u32 %linear;
+  .reg .pred %leader;
+  .reg .pred %ready;
+  .reg .pred %more;
+  .reg .pred %even;
+  .reg .f32 %d0;
+  .reg .f32 %d1;
+  .reg .f32 %d2;
+  .reg .f32 %d3;
+  ld.param.u64 %mapa,[MAP_A];
+  ld.param.u64 %mapb,[MAP_B];
+  ld.param.u64 %out,[C];
+  ld.param.u32 %tiles,[TILES];
+  mov.u32 %x,%tid.x;
+  mov.u32 %y,%tid.y;
+  mov.u32 %z,%tid.z;
+  add.u32 %sum,%x,%y;
+  add.u32 %sum,%sum,%z;
+  setp.eq.u32 %leader,%sum,0;
+  mov.u64 %bar0,gate0;
+  mov.u64 %bar1,gate1;
+  // Encode the actual shared symbol addresses; no placement-order assumption.
+  mov.u64 %ad0,a0;
+  shr.u64 %ad0,%ad0,4;
+  add.u64 %ad0,%ad0,68720001024;
+  mov.u64 %bd0,b0;
+  shr.u64 %bd0,%bd0,4;
+  add.u64 %bd0,%bd0,68720001024;
+  mov.u64 %ad1,a1;
+  shr.u64 %ad1,%ad1,4;
+  add.u64 %ad1,%ad1,68720001024;
+  mov.u64 %bd1,b1;
+  shr.u64 %bd1,%bd1,4;
+  add.u64 %bd1,%bd1,68720001024;
+  mov.f32 %d0,0f00000000;
+  mov.f32 %d1,0f00000000;
+  mov.f32 %d2,0f00000000;
+  mov.f32 %d3,0f00000000;
+  @!%leader bra INITIALIZED;
+  mbarrier.init.shared::cta.b64 [%bar0],1;
+  mbarrier.init.shared::cta.b64 [%bar1],1;
+  fence.proxy.async.shared::cta;
+INITIALIZED:
+  bar.sync 0;
+  setp.eq.u32 %more,%tiles,0;
+  @%more bra OUTPUT;
+  @!%leader bra LOADED;
+  mov.u64 %copya,a0;
+  mov.u64 %copyb,b0;
+  mbarrier.arrive.expect_tx.release.cta.shared::cta.b64 _,[%bar0],2304;
+  cp.async.bulk.tensor.2d.shared::cluster.global.mbarrier::complete_tx::bytes [%copya],[%mapa,{0,0}],[%bar0];
+  cp.async.bulk.tensor.2d.shared::cluster.global.mbarrier::complete_tx::bytes [%copyb],[%mapb,{0,0}],[%bar0];
+LOADED:
+  mov.u32 %tile,0;
+  mov.u32 %slot,0;
+  mov.u32 %phase0,0;
+  mov.u32 %phase1,0;
+LOOP:
+  setp.eq.u32 %even,%slot,0;
+  mov.u64 %waitbar,%bar0;
+  mov.u64 %ad,%ad0;
+  mov.u64 %bd,%bd0;
+  mov.u32 %parity,%phase0;
+  @%even bra WAIT;
+  mov.u64 %waitbar,%bar1;
+  mov.u64 %ad,%ad1;
+  mov.u64 %bd,%bd1;
+  mov.u32 %parity,%phase1;
+WAIT:
+  mbarrier.try_wait.parity.acquire.cta.shared::cta.b64 %ready,[%waitbar],%parity;
+  @!%ready bra WAIT;
+  @!%even bra FLIP_ODD;
+  sub.u32 %phase0,1,%phase0;
+  @%even bra PHASED;
+FLIP_ODD:
+  sub.u32 %phase1,1,%phase1;
+PHASED:
+  add.u32 %next,%tile,1;
+  setp.lt.u32 %more,%next,%tiles;
+  @!%more bra COMPUTE;
+  @!%leader bra COMPUTE;
+  mov.u64 %nextbar,%bar1;
+  mov.u64 %copya,a1;
+  mov.u64 %copyb,b1;
+  @%even bra PREFETCH;
+  mov.u64 %nextbar,%bar0;
+  mov.u64 %copya,a0;
+  mov.u64 %copyb,b0;
+PREFETCH:
+  mul.lo.u32 %ay,%next,8;
+  mbarrier.arrive.expect_tx.release.cta.shared::cta.b64 _,[%nextbar],2304;
+  cp.async.bulk.tensor.2d.shared::cluster.global.mbarrier::complete_tx::bytes [%copya],[%mapa,{0,%ay}],[%nextbar];
+  cp.async.bulk.tensor.2d.shared::cluster.global.mbarrier::complete_tx::bytes [%copyb],[%mapb,{0,%next}],[%nextbar];
+COMPUTE:
+  wgmma.fence.sync.aligned;
+  wgmma.mma_async.sync.aligned.m64n8k16.f32.f16.f16 {%d0,%d1,%d2,%d3},%ad,%bd,1,1,1,0,0;
+  wgmma.commit_group.sync.aligned;
+  wgmma.wait_group.sync.aligned 0;
+  bar.sync 2;
+  sub.u32 %slot,1,%slot;
+  add.u32 %tile,%tile,1;
+  setp.lt.u32 %more,%tile,%tiles;
+  @%more bra LOOP;
+OUTPUT:
+  mul.lo.u32 %row,%z,16;
+  add.u32 %row,%row,%y;
+  mul.lo.u32 %col,%x,2;
+  mul.lo.u32 %linear,%row,8;
+  add.u32 %linear,%linear,%col;
+  mul.wide.u32 %offset,%linear,4;
+  add.u64 %out,%out,%offset;
+  st.global.f32 [%out],%d0;
+  st.global.f32 [%out+4],%d1;
+  st.global.f32 [%out+256],%d2;
+  st.global.f32 [%out+260],%d3;
+  bar.sync 1;
+  @!%leader bra DONE;
+  mbarrier.inval.shared::cta.b64 [%bar0];
+  mbarrier.inval.shared::cta.b64 [%bar1];
+DONE:
+  ret;
+}

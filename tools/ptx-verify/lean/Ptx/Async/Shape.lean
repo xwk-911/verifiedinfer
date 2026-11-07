@@ -83,6 +83,15 @@ private theorem submitUse_length {s sid bid s'} (hs : submitUse s sid bid = .ok 
     have hq : enqueue mid sid (.use bid) = .ok s' := by simpa [hb,bind,Except.bind] using hs
     exact (enqueue_length hq).trans (borrow_length hb)
 
+private theorem submitAccess_length {s sid bid mode s'} (hs : submitAccess s sid bid mode = .ok s') :
+    s'.buffers.length = s.buffers.length := by
+  unfold submitAccess at hs
+  cases hb : borrow s sid bid mode with
+  | error e => simp [hb,bind,Except.bind] at hs
+  | ok mid =>
+    have hq : enqueue mid sid (.access bid mode) = .ok s' := by simpa [hb,bind,Except.bind] using hs
+    exact (enqueue_length hq).trans (borrow_length hb)
+
 private theorem submitCopy_length {s sid src dst s'} (hs : submitCopy s sid src dst = .ok s') :
     s'.buffers.length = s.buffers.length := by
   unfold submitCopy at hs
@@ -141,6 +150,7 @@ theorem step_buffers_length {s action s'} (hs : step s action = .ok s') :
   cases action with
   | copy _ _ _ => exact submitCopy_length hs
   | use _ _ => exact submitUse_length hs
+  | access _ _ _ => exact submitAccess_length hs
   | record _ _ => exact record_length hs
   | wait _ _ => exact waitStream_length hs
   | device _ => exact deviceStep_length hs

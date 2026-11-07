@@ -1,5 +1,6 @@
 use std::{env, fs, process};
 
+mod ast;
 mod parser;
 
 fn run() -> Result<(), String> {
@@ -13,8 +14,21 @@ fn run() -> Result<(), String> {
     let program = parser::parse(&source)?;
     fs::write(&args[2], program.emit()).map_err(|e| e.to_string())?;
     println!(
-        "translated {} instructions; no verification verdict (Lean contracts required)",
-        program.code.len()
+        "translated {} instructions ({}); no verification verdict (Lean contracts required)",
+        program.code.len(),
+        if program.is_ordered() {
+            "ordered global u32 + scalar model"
+        } else if program.is_shuffle() {
+            "warp shuffle + scalar model"
+        } else if program.is_hopper() {
+            "Hopper async/resource model"
+        } else if program.is_ampere() {
+            "Ampere async/tensor model"
+        } else if program.is_scalar() {
+            "exact-real scalar model"
+        } else {
+            "integer model"
+        }
     );
     Ok(())
 }

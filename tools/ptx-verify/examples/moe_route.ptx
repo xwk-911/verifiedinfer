@@ -1,0 +1,46 @@
+// Two-expert top-1, ties select expert 0. One thread per token.
+.version 7.0
+.target sm_70
+.address_size 64
+.visible .entry moe_route(.param .u64 G, .param .u64 R, .param .u32 M)
+{
+    .reg .u64 %g;
+    .reg .u64 %r;
+    .reg .u64 %gp;
+    .reg .u64 %rp;
+    .reg .u32 %m;
+    .reg .u32 %bx;
+    .reg .u32 %sx;
+    .reg .u32 %tx;
+    .reg .u32 %row;
+    .reg .u32 %expert;
+    .reg .pred %p;
+    .reg .f32 %g0;
+    .reg .f32 %g1;
+    ld.param.u64 %g, [G];
+    ld.param.u64 %r, [R];
+    ld.param.u32 %m, [M];
+    mov.u32 %bx, %ctaid.x;
+    mov.u32 %sx, %ntid.x;
+    mov.u32 %tx, %tid.x;
+    mul.lo.u32 %row, %bx, %sx;
+    add.u32 %row, %row, %tx;
+    setp.ge.u32 %p, %row, %m;
+    @%p bra EXIT;
+    mul.wide.u32 %gp, %row, 8;
+    add.u64 %gp, %g, %gp;
+    mul.wide.u32 %rp, %row, 4;
+    add.u64 %rp, %r, %rp;
+    ld.global.f32 %g0, [%gp];
+    ld.global.f32 %g1, [%gp+4];
+    setp.gt.f32 %p, %g1, %g0;
+    mov.u32 %expert, 0;
+    @%p bra EXPERT_ONE;
+    bra STORE;
+EXPERT_ONE:
+    mov.u32 %expert, 1;
+STORE:
+    st.global.u32 [%rp], %expert;
+EXIT:
+    ret;
+}

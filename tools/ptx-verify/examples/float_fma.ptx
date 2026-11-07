@@ -1,0 +1,17 @@
+// Exact-real local trace fixture; global memory consistency is a separate proof.
+.version 7.0
+.target sm_70
+.address_size 64
+.visible .entry float_fma(.param .u64 src, .param .u64 dst)
+{
+    .reg .u64 %rd<2>;
+    .reg .f32 %f<4>;
+    ld.param.u64 %rd0, [src];
+    ld.param.u64 %rd1, [dst];
+    ld.global.f32 %f0, [%rd0];
+    ld.global.f32 %f1, [%rd0+4];
+    ld.global.f32 %f2, [%rd0+8];
+    fma.rn.f32 %f3, %f0, %f1, %f2;
+    st.global.f32 [%rd1], %f3;
+    ret;
+}

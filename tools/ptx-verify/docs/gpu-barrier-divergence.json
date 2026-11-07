@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "observed_at_utc": "2026-11-04T23:49:10.684582+00:00",
+  "status": "aborted_after_stall",
+  "device": "NVIDIA GeForce RTX 4060 Laptop GPU sm_89",
+  "case": "barrier_publish",
+  "source_sha256": "1d4c4814f9a10e99283c63f2300964f4868adad17a0d360f4f4e6e9488f8a864",
+  "source_ptx": "// A two-thread CTA publishes an arbitrary u32 through a full CTA barrier.\n.version 7.0\n.target sm_70\n.address_size 64\n.visible .entry barrier_publish(.param .u64 x, .param .u32 value)\n{\n    .reg .u64 %d;\n    .reg .u32 %i;\n    .reg .u32 %v;\n    .reg .u32 %r;\n    .reg .pred %p;\n    ld.param.u64 %d, [x];\n    ld.param.u32 %v, [value];\n    mov.u32 %i, %tid.x;\n    setp.eq.u32 %p, %i, 0;\n    @%p bra WRITE;\n    bar.sync 0;\n    ld.global.u32 %r, [%d];\n    ret;\nWRITE:\n    st.global.u32 [%d], %v;\n    bar.sync 0;\n    ret;\n}\n",
+  "last_log": "GPU: NVIDIA GeForce RTX 4060 Laptop GPU sm_89\nGPU exact bytes: copy_mask_and_frame (20 bytes)\nGPU exact bytes: shared_swap (12 bytes)\nGPU completion only: loop (no exported result)\n",
+  "action": "Terminated only the check_gpu.py process after inspecting its live PID; no GPU reset or driver change."
+}

@@ -1,7 +1,8 @@
 import Ptx.Async.Model
 
 /-! Reachable-state lifetime invariant for the actual FIFO stream protocol.
-Every queued memory access owns a live buffer loan at its exact sequence number.
+Every queued resource access has a live lifetime reservation at its exact sequence
+number. Ordered reservations may overlap; they are not simultaneous byte permissions.
 This is not yet an ordering/functional or Iris global-adequacy theorem.
 -/
 namespace Ptx.Async
@@ -24,6 +25,7 @@ inductive Accesses : Command → Nat → Mode → Prop where
   | copyRead (src dst) : Accesses (.copy src dst) src .read
   | copyWrite (src dst) : Accesses (.copy src dst) dst .write
   | useRead (bid) : Accesses (.use bid) bid .read
+  | accessMode (bid mode) : Accesses (.access bid mode) bid mode
 
 def Holds (s : State) (bid : Nat) (loan : Loan) : Prop :=
   ∃ b, s.buffers[bid]? = some b ∧ b.alive = true ∧ loan ∈ b.loans
@@ -81,6 +83,14 @@ theorem execute_frame {s cmd s'} (hs : execute s cmd = .ok s') :
     subst s'
     exact ⟨rfl,fun _ b hb => ⟨b,hb,rfl,fun _ h => h⟩⟩
   | use bid =>
+    unfold execute at hs
+    cases hb : getBuffer s bid with
+    | error e => simp [hb,bind,Except.bind] at hs
+    | ok b =>
+      simp [hb,bind,Except.bind,pure,Except.pure] at hs
+      subst s'
+      exact ⟨rfl,fun _ b hb => ⟨b,hb,rfl,fun _ h => h⟩⟩
+  | access bid mode =>
     unfold execute at hs
     cases hb : getBuffer s bid with
     | error e => simp [hb,bind,Except.bind] at hs
@@ -192,6 +202,17 @@ theorem submitUse_invariant {s sid bid s'} (hi : Invariant s)
   | ok mid =>
     apply enqueue_invariant (borrow_invariant hi hb) _ (by simpa [hb,bind,Except.bind] using hs)
     intro st hget j mode hacc
+    cases hacc
+    exact borrow_holds hb hget
+
+theorem submitAccess_invariant {s sid bid mode s'} (hi : Invariant s)
+    (hs : submitAccess s sid bid mode = .ok s') : Invariant s' := by
+  unfold submitAccess at hs
+  cases hb : borrow s sid bid mode with
+  | error e => simp [hb,bind,Except.bind] at hs
+  | ok mid =>
+    apply enqueue_invariant (borrow_invariant hi hb) _ (by simpa [hb,bind,Except.bind] using hs)
+    intro st hget j actualMode hacc
     cases hacc
     exact borrow_holds hb hget
 
@@ -410,6 +431,10 @@ theorem execute_ready {s : State} {sid : Nat} {st : Stream} {cmd : Command}
     obtain ⟨b,hb,hba,_⟩ := hi.pending sid st hst 0 (.use bid) hidx bid .read (.useRead ..)
     have hgb := getBuffer_iff.mpr ⟨hb,hba⟩
     exact ⟨s,by simp [execute,hgb,bind,Except.bind,pure,Except.pure]⟩
+  | access bid mode =>
+    obtain ⟨b,hb,hba,_⟩ := hi.pending sid st hst 0 (.access bid mode) hidx bid mode (.accessMode ..)
+    have hgb := getBuffer_iff.mpr ⟨hb,hba⟩
+    exact ⟨s,by simp [execute,hgb,bind,Except.bind,pure,Except.pure]⟩
   | wait t => exact ⟨s,by simp [execute,hwait t rfl,pure,Except.pure]⟩
 
 /-- A queued command cannot fail from invalid/freed memory. A wait still requires
@@ -430,6 +455,7 @@ theorem deviceStep_safe {s : State} {sid : Nat} {st : Stream} {cmd : Command}
   cases cmd with
   | copy src dst => exact Or.inl (deviceStep_ready hi hst hhead (by intro t h; cases h))
   | use bid => exact Or.inl (deviceStep_ready hi hst hhead (by intro t h; cases h))
+  | access bid mode => exact Or.inl (deviceStep_ready hi hst hhead (by intro t h; cases h))
   | wait front =>
     cases hc : complete s front with
     | true =>
@@ -461,6 +487,7 @@ theorem step_invariant {s a s'} (hi : Invariant s) (hs : step s a = .ok s') : In
   cases a with
   | copy sid src dst => exact submitCopy_invariant hi hs
   | use sid bid => exact submitUse_invariant hi hs
+  | access sid bid mode => exact submitAccess_invariant hi hs
   | record sid id => exact record_invariant hi hs
   | wait sid id => exact waitStream_invariant hi hs
   | device sid => exact deviceStep_invariant hi hs

@@ -1,0 +1,18 @@
+// Exercises b32 float storage, exact source literal bits, shared/global memory.
+.version 7.0
+.target sm_70
+.address_size 64
+.visible .entry float_literals(.param .u64 dst)
+{
+    .reg .b64 %ptr;
+    .reg .b32 %f<3>;
+    .shared .align 4 .b8 tile[4];
+    ld.param.u64 %ptr, [dst];
+    mov.f32 %f0, 0F3f800000;
+    add.rn.f32 %f1, %f0, 0f40000000;
+    mul.rn.f32 %f2, %f1, 0f40400000;
+    st.shared.f32 [tile], %f2;
+    ld.shared.f32 %f0, [tile];
+    st.global.f32 [%ptr], %f0;
+    ret;
+}

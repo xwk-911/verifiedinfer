@@ -1,0 +1,78 @@
+.version 7.0
+.target sm_70
+.address_size 64
+.visible .entry scalar_matmul(
+    .param .u64 A, .param .u64 B, .param .u64 C,
+    .param .u32 M, .param .u32 N, .param .u32 K)
+{
+    .reg .u32 %bx;
+    .reg .u32 %by;
+    .reg .u32 %tx;
+    .reg .u32 %ty;
+    .reg .u32 %sx;
+    .reg .u32 %sy;
+    .reg .u32 %row;
+    .reg .u32 %col;
+    .reg .u32 %m;
+    .reg .u32 %n;
+    .reg .u32 %kmax;
+    .reg .u32 %k;
+    .reg .u64 %a;
+    .reg .u64 %b;
+    .reg .u64 %c;
+    .reg .u64 %ap;
+    .reg .u64 %bp;
+    .reg .u64 %cp;
+    .reg .u64 %stride;
+    .reg .u64 %offset;
+    .reg .pred %p;
+    .reg .f32 %acc;
+    .reg .f32 %av;
+    .reg .f32 %bv;
+    ld.param.u64 %a, [A];
+    ld.param.u64 %b, [B];
+    ld.param.u64 %c, [C];
+    ld.param.u32 %m, [M];
+    ld.param.u32 %n, [N];
+    ld.param.u32 %kmax, [K];
+    mov.u32 %by, %ctaid.y;
+    mov.u32 %sy, %ntid.y;
+    mov.u32 %ty, %tid.y;
+    mul.lo.u32 %row, %by, %sy;
+    add.u32 %row, %row, %ty;
+    mov.u32 %bx, %ctaid.x;
+    mov.u32 %sx, %ntid.x;
+    mov.u32 %tx, %tid.x;
+    mul.lo.u32 %col, %bx, %sx;
+    add.u32 %col, %col, %tx;
+    setp.ge.u32 %p, %row, %m;
+    @%p bra EXIT;
+    setp.ge.u32 %p, %col, %n;
+    @%p bra EXIT;
+    mul.wide.u32 %ap, %row, %kmax;
+    mul.lo.u64 %ap, %ap, 4;
+    add.u64 %ap, %a, %ap;
+    mul.wide.u32 %offset, %col, 4;
+    add.u64 %bp, %b, %offset;
+    mul.wide.u32 %stride, %n, 4;
+    mul.wide.u32 %cp, %row, %n;
+    mul.lo.u64 %cp, %cp, 4;
+    add.u64 %cp, %cp, %offset;
+    add.u64 %cp, %c, %cp;
+    mov.f32 %acc, 0f00000000;
+    mov.u32 %k, 0;
+LOOP:
+    setp.ge.u32 %p, %k, %kmax;
+    @%p bra DONE;
+    ld.global.f32 %av, [%ap];
+    ld.global.f32 %bv, [%bp];
+    fma.rn.f32 %acc, %av, %bv, %acc;
+    add.u64 %ap, %ap, 4;
+    add.u64 %bp, %bp, %stride;
+    add.u32 %k, %k, 1;
+    bra LOOP;
+DONE:
+    st.global.f32 [%cp], %acc;
+EXIT:
+    ret;
+}

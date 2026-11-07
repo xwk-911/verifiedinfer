@@ -1,0 +1,25 @@
+// Negative aligned-barrier example: distinct instructions in one CTA; do not launch as a positive test.
+// A two-thread CTA publishes an arbitrary u32 through a full CTA barrier.
+.version 7.0
+.target sm_70
+.address_size 64
+.visible .entry divergent_barrier(.param .u64 x, .param .u32 value)
+{
+    .reg .u64 %d;
+    .reg .u32 %i;
+    .reg .u32 %v;
+    .reg .u32 %r;
+    .reg .pred %p;
+    ld.param.u64 %d, [x];
+    ld.param.u32 %v, [value];
+    mov.u32 %i, %tid.x;
+    setp.eq.u32 %p, %i, 0;
+    @%p bra WRITE;
+    bar.sync 0;
+    ld.global.u32 %r, [%d];
+    ret;
+WRITE:
+    st.global.u32 [%d], %v;
+    bar.sync 0;
+    ret;
+}

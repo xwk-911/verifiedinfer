@@ -1,0 +1,26 @@
+// Ampere deferred global-to-shared copy, then issuer wait and CTA publication.
+.version 7.0
+.target sm_80
+.address_size 64
+.visible .entry cp_async_copy(.param .u64 X, .param .u64 Y)
+{
+    .shared .align 16 .b8 tile[16];
+    .reg .u64 %x;
+    .reg .u64 %y;
+    .reg .u32 %v;
+    ld.param.u64 %x, [X];
+    ld.param.u64 %y, [Y];
+    cp.async.cg.shared.global [tile], [%x], 16;
+    cp.async.commit_group;
+    cp.async.wait_group 0;
+    bar.sync 0;
+    ld.shared.u32 %v, [tile];
+    st.global.u32 [%y], %v;
+    ld.shared.u32 %v, [tile+4];
+    st.global.u32 [%y+4], %v;
+    ld.shared.u32 %v, [tile+8];
+    st.global.u32 [%y+8], %v;
+    ld.shared.u32 %v, [tile+12];
+    st.global.u32 [%y+12], %v;
+    ret;
+}

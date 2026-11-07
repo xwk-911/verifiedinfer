@@ -1,0 +1,87 @@
+// Single-stage 64x8x16 shared/shared WGMMA target; launch one CTA (4,8,4).
+// MAP_A: f16 tensor view (width=128,height=8,rowStride=256), box=(128,8).
+// MAP_B: f16 tensor view (width=128,height=1,rowStride=256), box=(128,1).
+// Global tensors contain packed core tiles, not plain matrix row/column order.
+// C: row-major f32[64][8]. Typed/assembled target only: full combined
+// source/resource/memory/observer admission and GEMM proofs are still pending.
+.version 8.0
+.target sm_90a
+.address_size 64
+.visible .entry hopper_gemm_stage(.param .u64 MAP_A,.param .u64 MAP_B,.param .u64 C)
+{
+  .shared .align 8 .b8 gate[8];
+  .shared .align 16 .b8 tile_a[2048];
+  .shared .align 16 .b8 tile_b[256];
+  .reg .u64 %mapa;
+  .reg .u64 %mapb;
+  .reg .u64 %out;
+  .reg .u64 %bar;
+  .reg .u64 %da;
+  .reg .u64 %db;
+  .reg .u64 %offset;
+  .reg .b64 %ad;
+  .reg .b64 %bd;
+  .reg .u32 %x;
+  .reg .u32 %y;
+  .reg .u32 %z;
+  .reg .u32 %sum;
+  .reg .u32 %row;
+  .reg .u32 %col;
+  .reg .u32 %linear;
+  .reg .pred %leader;
+  .reg .pred %ready;
+  .reg .f32 %d0;
+  .reg .f32 %d1;
+  .reg .f32 %d2;
+  .reg .f32 %d3;
+  ld.param.u64 %mapa,[MAP_A];
+  ld.param.u64 %mapb,[MAP_B];
+  ld.param.u64 %out,[C];
+  mov.u32 %x,%tid.x;
+  mov.u32 %y,%tid.y;
+  mov.u32 %z,%tid.z;
+  add.u32 %sum,%x,%y;
+  add.u32 %sum,%sum,%z;
+  setp.eq.u32 %leader,%sum,0;
+  mov.u64 %bar,gate;
+  mov.u64 %da,tile_a;
+  mov.u64 %db,tile_b;
+  mov.f32 %d0,0f00000000;
+  mov.f32 %d1,0f00000000;
+  mov.f32 %d2,0f00000000;
+  mov.f32 %d3,0f00000000;
+  mov.u64 %ad,68720001025;
+  mov.u64 %bd,68720001153;
+  @!%leader bra INITIALIZED;
+  mbarrier.init.shared::cta.b64 [%bar],1;
+  fence.proxy.async.shared::cta;
+INITIALIZED:
+  bar.sync 0;
+  @!%leader bra WAIT;
+  mbarrier.arrive.expect_tx.release.cta.shared::cta.b64 _,[%bar],2304;
+  cp.async.bulk.tensor.2d.shared::cluster.global.mbarrier::complete_tx::bytes [%da],[%mapa,{0,0}],[%bar];
+  cp.async.bulk.tensor.2d.shared::cluster.global.mbarrier::complete_tx::bytes [%db],[%mapb,{0,0}],[%bar];
+WAIT:
+  mbarrier.try_wait.parity.acquire.cta.shared::cta.b64 %ready,[%bar],0;
+  @!%ready bra WAIT;
+  wgmma.fence.sync.aligned;
+  wgmma.mma_async.sync.aligned.m64n8k16.f32.f16.f16 {%d0,%d1,%d2,%d3},%ad,%bd,1,1,1,0,0;
+  wgmma.commit_group.sync.aligned;
+  wgmma.wait_group.sync.aligned 0;
+  mul.lo.u32 %row,%z,16;
+  add.u32 %row,%row,%y;
+  mul.lo.u32 %col,%x,2;
+  mul.lo.u32 %linear,%row,8;
+  add.u32 %linear,%linear,%col;
+  mul.wide.u32 %offset,%linear,4;
+  add.u64 %out,%out,%offset;
+  st.global.f32 [%out],%d0;
+  st.global.f32 [%out+4],%d1;
+  st.global.f32 [%out+256],%d2;
+  st.global.f32 [%out+260],%d3;
+  bar.sync 1;
+  @!%leader bra DONE;
+  mbarrier.inval.shared::cta.b64 [%bar];
+DONE:
+  ret;
+}

@@ -1,0 +1,11 @@
+.version 7.0
+.target sm_70
+.address_size 64
+.visible .entry shuffle_pair() {
+    .reg .u32 %src;
+    .reg .u32 %dst;
+    .reg .pred %p;
+    mov.u32 %src, %tid.x;
+    shfl.sync.bfly.b32 %dst|%p, %src, 1, 31, 3;
+    ret;
+}

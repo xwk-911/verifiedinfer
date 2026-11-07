@@ -1,0 +1,112 @@
+// One thread computes one O[row,col]. Scale is in base-2 score units:
+// alpha = log(2)*Scale in the exact-real softmax specification.
+// This is a scalar baseline, not a tensor-core/warp-optimized kernel.
+.version 7.0
+.target sm_70
+.address_size 64
+.visible .entry scalar_flash_attention(
+    .param .u64 Q, .param .u64 K, .param .u64 V,
+    .param .u64 O, .param .u64 Scale,
+    .param .u32 M, .param .u32 N, .param .u32 D)
+{
+    .reg .u32 %bx; .reg .u32 %by;
+    .reg .u32 %tx; .reg .u32 %ty;
+    .reg .u32 %sx; .reg .u32 %sy;
+    .reg .u32 %row; .reg .u32 %col;
+    .reg .u32 %m; .reg .u32 %n; .reg .u32 %d;
+    .reg .u32 %j; .reg .u32 %k;
+    .reg .u64 %q; .reg .u64 %kr; .reg .u64 %vp;
+    .reg .u64 %o; .reg .u64 %sp;
+    .reg .u64 %qr; .reg .u64 %qp; .reg .u64 %kp;
+    .reg .u64 %op; .reg .u64 %stride; .reg .u64 %offset;
+    .reg .pred %p;
+    .reg .f32 %scale; .reg .f32 %score;
+    .reg .f32 %qv; .reg .f32 %kv; .reg .f32 %vv;
+    .reg .f32 %max; .reg .f32 %nextm;
+    .reg .f32 %a; .reg .f32 %w;
+    .reg .f32 %l; .reg .f32 %u; .reg .f32 %out;
+    ld.param.u64 %q, [Q];
+    ld.param.u64 %kr, [K];
+    ld.param.u64 %vp, [V];
+    ld.param.u64 %o, [O];
+    ld.param.u64 %sp, [Scale];
+    ld.param.u32 %m, [M];
+    ld.param.u32 %n, [N];
+    ld.param.u32 %d, [D];
+    mov.u32 %by, %ctaid.y;
+    mov.u32 %sy, %ntid.y;
+    mov.u32 %ty, %tid.y;
+    mul.lo.u32 %row, %by, %sy;
+    add.u32 %row, %row, %ty;
+    mov.u32 %bx, %ctaid.x;
+    mov.u32 %sx, %ntid.x;
+    mov.u32 %tx, %tid.x;
+    mul.lo.u32 %col, %bx, %sx;
+    add.u32 %col, %col, %tx;
+    setp.ge.u32 %p, %row, %m;
+    @%p bra EXIT;
+    setp.ge.u32 %p, %col, %d;
+    @%p bra EXIT;
+    mul.wide.u32 %op, %row, %d;
+    mul.lo.u64 %op, %op, 4;
+    mul.wide.u32 %offset, %col, 4;
+    add.u64 %op, %op, %offset;
+    add.u64 %op, %o, %op;
+    mov.f32 %out, 0f00000000;
+    setp.eq.u32 %p, %n, 0;
+    @%p bra STORE;
+    ld.global.f32 %scale, [%sp];
+    mul.wide.u32 %qr, %row, %d;
+    mul.lo.u64 %qr, %qr, 4;
+    add.u64 %qr, %q, %qr;
+    add.u64 %vp, %vp, %offset;
+    mul.wide.u32 %stride, %d, 4;
+    mov.u32 %j, 0;
+OUTER:
+    setp.ge.u32 %p, %j, %n;
+    @%p bra NORMALIZE;
+    mov.u64 %qp, %qr;
+    mov.u64 %kp, %kr;
+    mov.u32 %k, 0;
+    mov.f32 %score, 0f00000000;
+DOT:
+    setp.ge.u32 %p, %k, %d;
+    @%p bra SCORE;
+    ld.global.f32 %qv, [%qp];
+    ld.global.f32 %kv, [%kp];
+    fma.rn.f32 %score, %qv, %kv, %score;
+    add.u64 %qp, %qp, 4;
+    add.u64 %kp, %kp, 4;
+    add.u32 %k, %k, 1;
+    bra DOT;
+SCORE:
+    mul.rn.f32 %score, %scale, %score;
+    ld.global.f32 %vv, [%vp];
+    setp.eq.u32 %p, %j, 0;
+    @%p bra INIT;
+    max.f32 %nextm, %max, %score;
+    sub.rn.f32 %a, %max, %nextm;
+    sub.rn.f32 %w, %score, %nextm;
+    ex2.approx.f32 %a, %a;
+    ex2.approx.f32 %w, %w;
+    mul.rn.f32 %u, %u, %a;
+    fma.rn.f32 %u, %w, %vv, %u;
+    fma.rn.f32 %l, %l, %a, %w;
+    mov.f32 %max, %nextm;
+    bra NEXT;
+INIT:
+    mov.f32 %max, %score;
+    mov.f32 %l, 0f3f800000;
+    mov.f32 %u, %vv;
+NEXT:
+    mov.u64 %kr, %kp;
+    add.u64 %vp, %vp, %stride;
+    add.u32 %j, %j, 1;
+    bra OUTER;
+NORMALIZE:
+    div.rn.f32 %out, %u, %l;
+STORE:
+    st.global.f32 [%op], %out;
+EXIT:
+    ret;
+}

@@ -1,0 +1,35 @@
+.version 8.0
+.target sm_90a
+.address_size 64
+.visible .entry hopper_mbarrier_cycle()
+{
+  .shared .align 8 .b8 gateA[8];
+  .shared .align 8 .b8 gateB[8];
+  .reg .u64 %a;
+  .reg .u64 %b;
+  .reg .u32 %lane;
+  .reg .pred %leader;
+  .reg .pred %ready;
+  mov.u64 %a,gateA;
+  mov.u64 %b,gateB;
+  mov.u32 %lane,%tid.x;
+  setp.eq.u32 %leader,%lane,0;
+  @!%leader bra INIT_B;
+  mbarrier.init.shared::cta.b64 [%a],1;
+  bra READY;
+INIT_B:
+  mbarrier.init.shared::cta.b64 [%b],1;
+READY:
+  bar.sync 0;
+  @!%leader bra WAIT_A;
+WAIT_B:
+  mbarrier.try_wait.parity.acquire.cta.shared::cta.b64 %ready,[%b],0;
+  @!%ready bra WAIT_B;
+  mbarrier.arrive.expect_tx.release.cta.shared::cta.b64 _,[%a],0;
+  ret;
+WAIT_A:
+  mbarrier.try_wait.parity.acquire.cta.shared::cta.b64 %ready,[%a],0;
+  @!%ready bra WAIT_A;
+  mbarrier.arrive.expect_tx.release.cta.shared::cta.b64 _,[%b],0;
+  ret;
+}

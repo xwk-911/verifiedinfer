@@ -1,0 +1,33 @@
+.version 8.0
+.target sm_90a
+.address_size 64
+.visible .entry wgmma_probe(.param .u64 OUT)
+{
+  .shared .align 16 .b8 tile_a[2048];
+  .shared .align 16 .b8 tile_b[256];
+  .reg .u64 %out;
+  .reg .u64 %offset;
+  .reg .u32 %thread;
+  .reg .b64 %a;
+  .reg .b64 %b;
+  .reg .f32 %d0;
+  .reg .f32 %d1;
+  .reg .f32 %d2;
+  .reg .f32 %d3;
+  ld.param.u64 %out,[OUT];
+  mov.u32 %thread,%tid.x;
+  mul.wide.u32 %offset,%thread,4;
+  add.u64 %out,%out,%offset;
+  mov.f32 %d0,0f00000000;
+  mov.f32 %d1,0f00000000;
+  mov.f32 %d2,0f00000000;
+  mov.f32 %d3,0f00000000;
+  mov.u64 %a,68720001024;
+  mov.u64 %b,68720001152;
+  wgmma.fence.sync.aligned;
+  wgmma.mma_async.sync.aligned.m64n8k16.f32.f16.f16 {%d0,%d1,%d2,%d3},%a,%b,1,1,1,0,0;
+  wgmma.commit_group.sync.aligned;
+  wgmma.wait_group.sync.aligned 0;
+  st.global.f32 [%out],%d0;
+  ret;
+}

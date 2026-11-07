@@ -1,0 +1,99 @@
+// H[e,row,col] is written only for the expert selected by R[row].
+// W[e,k,col] is row-major within each expert. K=0 reads no X/W data.
+.version 7.0
+.target sm_70
+.address_size 64
+.visible .entry moe_experts(
+    .param .u64 X, .param .u64 W, .param .u64 R, .param .u64 H,
+    .param .u32 M, .param .u32 N, .param .u32 K)
+{
+    .reg .u64 %x;
+    .reg .u64 %w;
+    .reg .u64 %r;
+    .reg .u64 %h;
+    .reg .u64 %ap;
+    .reg .u64 %bp;
+    .reg .u64 %rp;
+    .reg .u64 %cp;
+    .reg .u64 %plane;
+    .reg .u64 %offset;
+    .reg .u64 %stride;
+    .reg .u32 %m;
+    .reg .u32 %n;
+    .reg .u32 %kmax;
+    .reg .u32 %k;
+    .reg .u32 %e;
+    .reg .u32 %bx;
+    .reg .u32 %by;
+    .reg .u32 %sx;
+    .reg .u32 %sy;
+    .reg .u32 %tx;
+    .reg .u32 %ty;
+    .reg .u32 %row;
+    .reg .u32 %col;
+    .reg .pred %p;
+    .reg .f32 %av;
+    .reg .f32 %bv;
+    .reg .f32 %acc;
+    ld.param.u64 %x, [X];
+    ld.param.u64 %w, [W];
+    ld.param.u64 %r, [R];
+    ld.param.u64 %h, [H];
+    ld.param.u32 %m, [M];
+    ld.param.u32 %n, [N];
+    ld.param.u32 %kmax, [K];
+    mov.u32 %by, %ctaid.y;
+    mov.u32 %sy, %ntid.y;
+    mov.u32 %ty, %tid.y;
+    mul.lo.u32 %row, %by, %sy;
+    add.u32 %row, %row, %ty;
+    mov.u32 %bx, %ctaid.x;
+    mov.u32 %sx, %ntid.x;
+    mov.u32 %tx, %tid.x;
+    mul.lo.u32 %col, %bx, %sx;
+    add.u32 %col, %col, %tx;
+    setp.ge.u32 %p, %row, %m;
+    @%p bra EXIT;
+    setp.ge.u32 %p, %col, %n;
+    @%p bra EXIT;
+    mul.wide.u32 %rp, %row, 4;
+    add.u64 %rp, %r, %rp;
+    ld.global.u32 %e, [%rp];
+    setp.ge.u32 %p, %e, 2;
+    @%p bra EXIT;
+    setp.eq.u32 %p, %e, 0;
+    @%p bra ADDRESSES;
+    mul.wide.u32 %plane, %kmax, %n;
+    mul.lo.u64 %plane, %plane, 4;
+    add.u64 %w, %w, %plane;
+    mul.wide.u32 %plane, %m, %n;
+    mul.lo.u64 %plane, %plane, 4;
+    add.u64 %h, %h, %plane;
+ADDRESSES:
+    mul.wide.u32 %ap, %row, %kmax;
+    mul.lo.u64 %ap, %ap, 4;
+    add.u64 %ap, %x, %ap;
+    mul.wide.u32 %offset, %col, 4;
+    add.u64 %bp, %w, %offset;
+    mul.wide.u32 %stride, %n, 4;
+    mul.wide.u32 %cp, %row, %n;
+    mul.lo.u64 %cp, %cp, 4;
+    add.u64 %cp, %cp, %offset;
+    add.u64 %cp, %h, %cp;
+    mov.f32 %acc, 0f00000000;
+    mov.u32 %k, 0;
+LOOP:
+    setp.ge.u32 %p, %k, %kmax;
+    @%p bra DONE;
+    ld.global.f32 %av, [%ap];
+    ld.global.f32 %bv, [%bp];
+    fma.rn.f32 %acc, %av, %bv, %acc;
+    add.u64 %ap, %ap, 4;
+    add.u64 %bp, %bp, %stride;
+    add.u32 %k, %k, 1;
+    bra LOOP;
+DONE:
+    st.global.f32 [%cp], %acc;
+EXIT:
+    ret;
+}

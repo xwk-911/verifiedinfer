@@ -1,0 +1,72 @@
+// Top-1 gather from expert-partitioned H into row-major Y.
+.version 7.0
+.target sm_70
+.address_size 64
+.visible .entry moe_combine(
+    .param .u64 R, .param .u64 H, .param .u64 Y,
+    .param .u32 M, .param .u32 N)
+{
+    .reg .u64 %r;
+    .reg .u64 %h;
+    .reg .u64 %y;
+    .reg .u64 %rp;
+    .reg .u64 %hp;
+    .reg .u64 %yp;
+    .reg .u64 %plane;
+    .reg .u32 %m;
+    .reg .u32 %n;
+    .reg .u32 %e;
+    .reg .u32 %bx;
+    .reg .u32 %by;
+    .reg .u32 %sx;
+    .reg .u32 %sy;
+    .reg .u32 %tx;
+    .reg .u32 %ty;
+    .reg .u32 %row;
+    .reg .u32 %col;
+    .reg .pred %p;
+    .reg .f32 %v;
+    ld.param.u64 %r, [R];
+    ld.param.u64 %h, [H];
+    ld.param.u64 %y, [Y];
+    ld.param.u32 %m, [M];
+    ld.param.u32 %n, [N];
+    mov.u32 %by, %ctaid.y;
+    mov.u32 %sy, %ntid.y;
+    mov.u32 %ty, %tid.y;
+    mul.lo.u32 %row, %by, %sy;
+    add.u32 %row, %row, %ty;
+    mov.u32 %bx, %ctaid.x;
+    mov.u32 %sx, %ntid.x;
+    mov.u32 %tx, %tid.x;
+    mul.lo.u32 %col, %bx, %sx;
+    add.u32 %col, %col, %tx;
+    setp.ge.u32 %p, %row, %m;
+    @%p bra EXIT;
+    setp.ge.u32 %p, %col, %n;
+    @%p bra EXIT;
+    mul.wide.u32 %rp, %row, 4;
+    add.u64 %rp, %r, %rp;
+    ld.global.u32 %e, [%rp];
+    setp.ge.u32 %p, %e, 2;
+    @%p bra EXIT;
+    setp.eq.u32 %p, %e, 0;
+    @%p bra ADDRESSES;
+    mul.wide.u32 %plane, %m, %n;
+    mul.lo.u64 %plane, %plane, 4;
+    add.u64 %h, %h, %plane;
+ADDRESSES:
+    mul.wide.u32 %hp, %row, %n;
+    mul.lo.u64 %hp, %hp, 4;
+    add.u64 %hp, %hp, %h;
+    mul.wide.u32 %yp, %row, %n;
+    mul.lo.u64 %yp, %yp, 4;
+    add.u64 %yp, %yp, %y;
+    mul.wide.u32 %rp, %col, 4;
+    add.u64 %hp, %hp, %rp;
+    add.u64 %yp, %yp, %rp;
+    ld.global.f32 %v, [%hp];
+    st.global.f32 [%yp], %v;
+EXIT:
+    ret;
+}

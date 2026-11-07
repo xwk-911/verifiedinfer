@@ -654,10 +654,9 @@ theorem release_ready {m : Machine} (hc : m.threads.length = 2)
 /-- A nonfinished state can execute a thread or the actual collective release.
 This explicitly excludes barrier deadlock within the stated precondition; it
 does not assume that an external scheduler will choose an enabled action. -/
-theorem progress {c m m'} (hp : Pre c m) (hs : Steps code m m')
+theorem invariant_progress {c m'} (hi : Inv c m')
     (hn : m'.threads.all (fun t => t.status == .done) ≠ true) :
     ∃ a next, step code a m' = .ok next := by
-  have hi := invariant_steps (invariant c) hs (pre_invariant hp)
   by_cases hrun : m'.threads.any (fun t => t.status == .running) = true
   · obtain ⟨t,ht,hr⟩ := List.any_eq_true.mp hrun
     have hr : t.status = .running := by simpa using hr
@@ -689,6 +688,11 @@ theorem progress {c m m'} (hp : Pre c m) (hs : Steps code m m')
       · exact hw
       · omega
     exact ⟨.release,released m',release_ready hi.count hwait⟩
+
+theorem progress {c m m'} (hp : Pre c m) (hs : Steps code m m')
+    (hn : m'.threads.all (fun t => t.status == .done) ≠ true) :
+    ∃ a next, step code a m' = .ok next :=
+  invariant_progress (invariant_steps (invariant c) hs (pre_invariant hp)) hn
 
 def pairConfig (x y : Nat) : Config := {
   toConfig := CopyContract.contiguous [x,y] 2 (by simp) (by decide)

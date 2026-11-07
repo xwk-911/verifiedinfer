@@ -1,0 +1,41 @@
+.version 7.0
+.target sm_70
+.address_size 64
+.visible .entry shuffle_up(
+    .param .u64 Out,
+    .param .u32 B,
+    .param .u32 C,
+    .param .u32 Mask,
+    .param .u32 Base
+) {
+    .reg .u64 %rd<3>;
+    .reg .u32 %r<13>;
+    .reg .pred %p;
+    ld.param.u64 %rd0, [Out];
+    ld.param.u32 %r0, [B];
+    ld.param.u32 %r1, [C];
+    ld.param.u32 %r2, [Mask];
+    ld.param.u32 %r3, [Base];
+    mov.u32 %r4, %tid.x;
+    mov.u32 %r5, %tid.y;
+    mov.u32 %r6, %tid.z;
+    mov.u32 %r7, %ntid.x;
+    mov.u32 %r8, %ntid.y;
+    mul.lo.u32 %r9, %r8, %r6;
+    add.u32 %r9, %r9, %r5;
+    mul.lo.u32 %r9, %r9, %r7;
+    add.u32 %r9, %r9, %r4;
+    add.u32 %r10, %r3, %r9;
+    shfl.sync.up.b32 %r11|%p, %r10, %r0, %r1, %r2;
+    mov.u32 %r12, 0;
+    @%p bra VALID;
+    bra STORE;
+VALID:
+    mov.u32 %r12, 1;
+STORE:
+    mul.wide.u32 %rd1, %r9, 8;
+    add.u64 %rd2, %rd0, %rd1;
+    st.global.u32 [%rd2], %r11;
+    st.global.u32 [%rd2+4], %r12;
+    ret;
+}

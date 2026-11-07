@@ -137,6 +137,20 @@ def run (transition : Action → State → Outcome Error State) :
   | [], s => .ok s
   | a::actions, s => (transition a s).bind (run transition actions)
 
+theorem run_append (transition : Action → State → Outcome Error State) (first rest : List Action) (state : State) :
+    run transition (first ++ rest) state = (run transition first state).bind (run transition rest) := by
+  induction first generalizing state with
+  | nil => rfl
+  | cons head tail ih =>
+    simp only [List.cons_append,run]
+    cases hs : transition head state with
+    | error error => rfl
+    | ok mid => exact ih mid
+
+theorem run_singleton (transition : Action → State → Outcome Error State) (action : Action) (state : State) :
+    run transition [action] state = transition action state := by
+  cases hs : transition action state <;> simp only [run,hs,Except.bind]
+
 /-- Successful scripts use the non-atomic, one-action-per-step language above.
 No executable error can establish this successful-result postcondition. -/
 theorem script_wp [ι : OwnPGS State (GF State)] {actions s s'}
