@@ -13,9 +13,11 @@ VerifiedInfer aims to provide deterministic LLM inference and formally verify th
 # C regression and model compatibility tests
 ./dev run --rm engine make test model-test
 
-# QCP's Rocq foundation libraries; PTX translator and Lean checks
+# QCP's prebuilt Rocq foundation; translate PTX, then check its supplied proof
 ./dev run --rm qcp check
-./dev run --rm ptx check
+./dev run --rm ptx translate examples/copy.ptx lean/Ptx/Generated/Copy.lean
+./dev run --rm ptx verify Ptx.Kernels.CopyEventWitness \
+    Ptx.CopyEvent.correct Ptx.CopyEvent.nonvacuous
 
 # Export PTX for the project's CUDA operators
 ./dev run --rm engine make cuda-ptx
@@ -24,6 +26,14 @@ VerifiedInfer aims to provide deterministic LLM inference and formally verify th
 Tests and formal proofs are reported separately. Model tests check exact agreement within a fixed execution plan. The QCP/PTX commands check their existing foundation libraries or examples; they do not establish a proof of the entire inference engine. cuBLAS, the CUDA runtime, compilers, and connections between proof systems remain proof boundaries.
 
 Model module boundaries and extension contracts are described in [model_executor](src/model_executor/README.md).
+
+Compose provides separate `engine`, `coq`, `qcp` and `ptx` images. `qcp` reuses the
+Coq toolchain image and adds the C symbolic executor and precompiled upstream
+foundation. `ptx` owns its [image and workflow](tools/ptx-verify/README.md), including
+Lean/Iris/Mathlib dependencies. Dependencies are installed at image build time;
+QCP/PTX runtime services are offline. Compose orchestrates these environments
+directly; no nested Docker daemon is needed. Project-specific QCP rules under
+`proof/` remain separate from the image's upstream foundation.
 
 ## Related work
 

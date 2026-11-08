@@ -1,0 +1,25 @@
+name: ptx-verify
+services:
+  ptx:
+    image: verifiedinfer-ptx:local
+    build:
+      context: .
+      network: host
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        http_proxy: ${http_proxy:-}
+        https_proxy: ${https_proxy:-}
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    working_dir: /workspace
+    environment:
+      PTX_VERIFY_SOURCE: /workspace
+    volumes:
+      - .:/workspace
+      - lean-build:/opt/ptx-verify/lean/.lake/build
+      - cargo-build:/opt/ptx-verify/target
+    network_mode: none
+    init: true
+volumes:
+  lean-build:
+  cargo-build:

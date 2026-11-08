@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "timestamp_utc": "2026-11-07T09:28:56.517828+00:00",
+  "timestamp_utc": "2026-11-08T05:26:16.501099+00:00",
   "status": "passed",
   "tool_version": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0",
   "target": "per-fixture sm_70/sm_80/sm_90a",

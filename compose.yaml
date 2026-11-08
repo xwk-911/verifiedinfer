@@ -45,20 +45,46 @@ services:
       VI_DEVICE: cuda
       CUDA: "1"
 
+  coq:
+    <<: *workspace
+    image: verifiedinfer-coq:local
+    build:
+      <<: *build
+      context: .
+      dockerfile: docker/qcp.Dockerfile
+      target: coq
+    environment:
+      <<: *environment
+
   qcp:
     <<: *workspace
     image: verifiedinfer-qcp:local
     build:
       <<: *build
+      context: .
+      dockerfile: docker/qcp.Dockerfile
       target: qcp
     environment:
       <<: *environment
+    network_mode: none
 
   ptx:
     <<: *workspace
     image: verifiedinfer-ptx:local
     build:
       <<: *build
-      target: ptx
+      context: ./tools/ptx-verify
+    working_dir: ${WORKSPACE:-${PWD}}/tools/ptx-verify
     environment:
-      <<: *environment
+      PTX_VERIFY_SOURCE: ${WORKSPACE:-${PWD}}/tools/ptx-verify
+    volumes:
+      - type: bind
+        source: .
+        target: ${WORKSPACE:-${PWD}}
+      - ptx-lean-build:/opt/ptx-verify/lean/.lake/build
+      - ptx-cargo-build:/opt/ptx-verify/target
+    network_mode: none
+
+volumes:
+  ptx-lean-build:
+  ptx-cargo-build:

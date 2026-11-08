@@ -19,11 +19,9 @@ case "${VI_SERVICE:-}:${1:-}" in
     engine:generate) shift; exec python3 /opt/verifiedinfer/infer.py "$@" ;;
     qcp:check)
         shift
-        if [[ ! -f tools/QCP/Rocq/Makefile ]]; then
-            git submodule update --init --recursive tools/QCP
-        fi
-        exec make -C tools/QCP/Rocq -j"${MAKE_JOBS:-4}" core "$@"
+        # The upstream foundation is compiled into the image. Project-local
+        # proof/Rocq may intentionally use different rules and remains separate.
+        exec make -C "${QCP_IMAGE_ROOT:?}/Rocq" -j"${MAKE_JOBS:-4}" core "$@"
         ;;
-    ptx:check) shift; exec /opt/verifiedinfer/ptx-check.sh "$@" ;;
 esac
 exec "$@"

@@ -1,0 +1,10 @@
+.git
+vendor
+target
+lean/.lake
+**/__pycache__
+**/*.pyc
+**/*.olean
+**/*.ilean
+**/*.trace
+docs/*.log
