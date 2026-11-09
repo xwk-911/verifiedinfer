@@ -76,7 +76,10 @@ const vi_model_ops *vi_cpu_model_ops(void);
 const vi_model_ops *vi_cuda_model_ops(void);
 const vi_model_implementation *vi_model_registry_find(const char *, const char *);
 int vi_model_checkpoint_load(vi_model *, const char *, vi_diagnostic);
-int vi_model_problem(vi_diagnostic, const char *, ...);
+int vi_model_problem(vi_diagnostic, const char *);
+int vi_model_problem_string(vi_diagnostic, const char *, const char *);
+int vi_model_problem_shape(vi_diagnostic, const char *, size_t, size_t, size_t, size_t);
+void vi_model_layer_name(char *, size_t, const char *);
 void vi_model_runner_bind(vi_model_state *, vi_model_runner *);
 #ifdef __cplusplus
 }

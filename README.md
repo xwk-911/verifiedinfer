@@ -4,6 +4,9 @@ VerifiedInfer aims to provide deterministic LLM inference and formally verify th
 ```bash
 ./dev build
 
+# bash
+./dev run --rm engine bash
+
 # Trained models: the first run automatically prepares the model and builds the CUDA engine
 ./dev run --rm engine generate --model smollm2 \
     --prompt "What is the capital of France?" --max-new-tokens 32
@@ -22,8 +25,6 @@ VerifiedInfer aims to provide deterministic LLM inference and formally verify th
 # Export PTX for the project's CUDA operators
 ./dev run --rm engine make cuda-ptx
 ```
-
-Tests and formal proofs are reported separately. Model tests check exact agreement within a fixed execution plan. The QCP/PTX commands check their existing foundation libraries or examples; they do not establish a proof of the entire inference engine. cuBLAS, the CUDA runtime, compilers, and connections between proof systems remain proof boundaries.
 
 Model module boundaries and extension contracts are described in [model_executor](src/model_executor/README.md).
 
@@ -47,6 +48,9 @@ directly; no nested Docker daemon is needed. Project-specific QCP rules under
 
 - Kuiper/RESOLVE: https://arxiv.org/abs/2610.05683
 - LARK: https://arxiv.org/pdf/2611.02028v1
+- Volta: https://github.com/willtunnels/volta
+- PTX in Lean: https://sf-tensor.com/papers/formalizing-ptx.pdf
+- LKV: https://github.com/facebookresearch/lean_kernel_verify
 
 ### LLM model equivalence verification
 

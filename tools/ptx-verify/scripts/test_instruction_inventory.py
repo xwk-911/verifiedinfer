@@ -5,7 +5,7 @@ import unittest
 import tomllib
 
 from instruction_inventory import ROOT, parser_spellings, probe_source, validate_inventory
-from prototype_audit import AuditError
+from proof_audit import AuditError
 
 
 class InventoryTests(unittest.TestCase):

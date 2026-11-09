@@ -1,18 +1,6 @@
 #include "model_internal.h"
-#include <stdarg.h>
-#include <stdio.h>
 #include <stdlib.h>
 
-int vi_model_problem(vi_diagnostic e, const char *format, ...)
-{
-    if (e.text != NULL && e.size != 0) {
-        va_list args;
-        va_start(args, format);
-        vsnprintf(e.text, e.size, format, args);
-        va_end(args);
-    }
-    return 0;
-}
 vi_status vi_model_load(const char *directory, vi_device device, vi_model **out,
                         char *error, size_t capacity)
 {

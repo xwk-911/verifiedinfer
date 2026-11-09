@@ -152,7 +152,7 @@ static int load_config(vi_model *m, const char *directory, vi_diagnostic e)
     }
     m->implementation = vi_model_registry_find(architecture, model_type);
     if (m->implementation == NULL) {
-        vi_model_problem(e, "unsupported architecture/model_type: %s", architecture); goto done;
+        vi_model_problem_string(e, "unsupported architecture/model_type: ", architecture); goto done;
     }
     ok = m->implementation->executor->configure(m, &j, e);
 done:
@@ -176,16 +176,16 @@ static int load_shard(vi_model *model, const char *path, vi_diagnostic e)
     vi_json j = {0};
     struct stat st;
     if (fd < 0 || fstat(fd, &st) != 0 || st.st_size < 8 || (uintmax_t)st.st_size > SIZE_MAX) {
-        vi_model_problem(e, "cannot open safetensors shard: %s", path); goto done;
+        vi_model_problem_string(e, "cannot open safetensors shard: ", path); goto done;
     }
     size = (size_t)st.st_size;
     mapping = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (mapping == MAP_FAILED) { vi_model_problem(e, "cannot mmap %s", path); goto done; }
+    if (mapping == MAP_FAILED) { vi_model_problem_string(e, "cannot mmap ", path); goto done; }
     const unsigned char *bytes = mapping;
     uint64_t header = 0;
     for (unsigned i = 0; i < 8; ++i) header |= (uint64_t)bytes[i] << (8 * i);
     if (header > size - 8 || !vi_json_parse(&j, (const char *)bytes + 8, (size_t)header)) {
-        vi_model_problem(e, "invalid safetensors header: %s", path); goto done;
+        vi_model_problem_string(e, "invalid safetensors header: ", path); goto done;
     }
     const unsigned char *data = bytes + 8 + (size_t)header;
     size_t data_size = size - 8 - (size_t)header;
@@ -197,7 +197,7 @@ static int load_shard(vi_model *model, const char *path, vi_diagnostic e)
         if (!vi_json_string(&j, i, tensor.name, sizeof(tensor.name))) { vi_model_problem(e, "invalid tensor name"); goto done; }
         for (size_t k = 0; k < model->tensor_count; ++k)
             if (strcmp(model->tensors[k].name, tensor.name) == 0) {
-                vi_model_problem(e, "duplicate tensor: %s", tensor.name); goto done;
+                vi_model_problem_string(e, "duplicate tensor: ", tensor.name); goto done;
             }
         int shape = vi_json_member(&j, object, "shape"), offsets = vi_json_member(&j, object, "data_offsets");
         int dtype = vi_json_member(&j, object, "dtype");
@@ -207,7 +207,7 @@ static int load_shard(vi_model *model, const char *path, vi_diagnostic e)
             j.tokens[offsets].type != JSMN_ARRAY || j.tokens[offsets].size != 2 ||
             !vi_json_integer(&j, shape + 1, &tensor.rows) || tensor.rows == 0 ||
             !vi_json_integer(&j, offsets + 1, &start) || !vi_json_integer(&j, offsets + 2, &end)) {
-            vi_model_problem(e, "invalid tensor shape/offsets: %s", tensor.name); goto done;
+            vi_model_problem_string(e, "invalid tensor shape/offsets: ", tensor.name); goto done;
         }
         tensor.cols = 1;
         if (j.tokens[shape].size == 2 && !vi_json_integer(&j, shape + 2, &tensor.cols)) {
@@ -221,7 +221,7 @@ static int load_shard(vi_model *model, const char *path, vi_diagnostic e)
             (vi_json_equal(&j, dtype, "BF16") || vi_json_equal(&j, dtype, "F16")) ? 2 : 0;
         if (element_size == 0 || start > end || end > data_size ||
             end - start != count * element_size || start % element_size != 0) {
-            vi_model_problem(e, "invalid dtype/extent for %s", tensor.name); goto done;
+            vi_model_problem_string(e, "invalid dtype/extent for ", tensor.name); goto done;
         }
         tensor.data = malloc(count * sizeof(float));
         if (tensor.data == NULL) { vi_model_problem(e, "weight allocation failed"); goto done; }
@@ -238,7 +238,7 @@ static int load_shard(vi_model *model, const char *path, vi_diagnostic e)
                 } else tensor.data[k] = convert_half(bits);
             }
             if (!isfinite(tensor.data[k])) {
-                free(tensor.data); vi_model_problem(e, "nonfinite weight in %s", tensor.name); goto done;
+                free(tensor.data); vi_model_problem_string(e, "nonfinite weight in ", tensor.name); goto done;
             }
         }
         if (model->tensor_count >= 65536) { free(tensor.data); vi_model_problem(e, "too many tensors"); goto done; }

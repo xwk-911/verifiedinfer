@@ -32,19 +32,22 @@ COPY lean/lean-toolchain lean/lakefile.toml lean/lake-manifest.json ./lean/
 COPY docker/install-deps.py ./docker/install-deps.py
 # Fetch exact manifest revisions; cache retrieval is a build step, never startup.
 RUN python3 docker/install-deps.py && cd lean && lake exe cache get \
-    && chmod -R a+rX .lake/packages ../vendor
+    && chmod -R a+rX .lake/packages ../vendor \
+    && find .lake/packages -type d -exec chmod a+rwx {} + \
+    && find .lake/packages -type f \
+        \( -name '*.hash' -o -name '*.trace' -o -name '*.log' \) -exec chmod a+rw {} +
 RUN cd lean && lake build @iris
 
 FROM dependencies AS ptx
 COPY . .
 COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/ptx-entrypoint
 RUN cargo build --locked --offline \
-    && cd lean && lake build Ptx.Kernels.CopyEventWitness PtxPrototype.Audit
+    && cd lean && lake build Ptx.Kernels.CopyEventWitness
 # Lake lazily regenerates small hash/trace files even for cached Mathlib modules.
 # Allow arbitrary container UIDs to maintain metadata without duplicating the
 # multi-gigabyte compiled libraries in another image layer.
-RUN find vendor lean/.lake/packages -type d -exec chmod a+rwx {} + \
-    && find vendor lean/.lake/packages -type f \
+RUN find vendor -type d -exec chmod a+rwx {} + \
+    && find vendor -type f \
         \( -name '*.hash' -o -name '*.trace' -o -name '*.log' \) -exec chmod a+rw {} +
 RUN find . -path ./vendor -prune -o -path ./lean/.lake/packages -prune \
     -o -exec chmod a+rwX {} +

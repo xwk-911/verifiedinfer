@@ -19,8 +19,10 @@ fatal compute error makes the state terminal, with no assumption of GPU rollback
 `models/llama_decoder.c` and its private header own the existing full causal
 attention, RMSNorm, half-split RoPE and SwiGLU implementation and its KV layout.
 Both Llama and Qwen2 registry entries reuse it. Shared/public state descriptors do
-not contain dense K/V pointers. CPU reference and CUDA operator implementations
-live in `ops/`; their arithmetic order and precision are unchanged by the split.
+not contain dense K/V pointers. CPU reference and GPU operator implementations
+live in `ops/`. The GPU backend uses C host scheduling, standalone PTX custom
+kernels and cuBLAS linear operations; see [the operator backend](ops/README.md).
+The PTX migration preserves the original arithmetic order and precision.
 
 To add an architecture, supply its configuration validation, weight binding/free,
 private state creation/free, forward and logical computed-token count callbacks,

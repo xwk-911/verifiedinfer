@@ -1,4 +1,6 @@
-#include "../model_internal.h"
+// Frozen pre-PTX CUDA backend for exact migration regression tests only.
+// Not compiled into the inference engine.
+#include "../../src/model_executor/model_internal.h"
 
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
@@ -154,7 +156,7 @@ static vi_status swiglu(void *context, float *gate, const float *up, size_t n)
     swiglu_kernel<<<(unsigned)((n + 255) / 256),256,0,c->stream>>>(gate,up,n);
     return launch_status();
 }
-extern "C" const vi_model_ops *vi_cuda_model_ops(void)
+extern "C" const vi_model_ops *vi_reference_cuda_model_ops(void)
 {
     static const vi_model_ops ops = {create,destroy,allocate,release,write,read,copy,linear,norm,rope,attention,add,swiglu};
     return &ops;

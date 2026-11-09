@@ -14,73 +14,34 @@ Translate PTX into Lean program data and verify kernels with separate Lean contr
 
 ## Prototype acceptance
 
-The independent prototype entry point preserves the strict checker:
+The prototype acceptance command retains the strict checker and all seven
+original kernel groups and twelve capability groups:
 
 ```sh
-bash scripts/check_prototype.sh
-# CPU-only hosts: explicitly record hardware checks as not run.
 bash scripts/check_prototype.sh --gpu off
 ```
 
-`LEAN_TOOLCHAIN_DIR` and `PTXAS` work as for the strict gate below. By default
-the command runs the unchanged strict gate, audit-tool regression tests, the
-prototype build, actual Lean dependency/type audits, and fresh finite GPU checks.
-It writes `docs/prototype-evidence.json` and adjacent logs/GPU evidence. Failures
-write a failed report and return nonzero. `--gpu off` never claims new hardware
-evidence. Source fingerprints before/after acceptance detect a changing worktree.
+Run this inside the PTX image. GPU execution is separate and requires explicit
+hardware access; CPU-only acceptance records hardware checks as not run.
+The command checks frontend translation, generated typing, actual Lean proof
+dependencies, rejection tests and the fixed claims in `prototype.toml`.
+It writes `docs/prototype-evidence.json` with exact theorem statements, scopes
+and source fingerprints. Failed checks return nonzero and write a failed report.
 
-`prototype.toml` retains all seven original acceptance groups and twelve
-capability groups. Cases list exact correctness, non-vacuity and instance
-theorems. Capabilities list checked claims alongside the separate implementation
-gaps from `coverage.toml`. The initial assumption registry is empty: permission
-to leave auxiliary lemmas open does not weaken already proved facts. Statuses
-are `strict-proof`, `conditional-proof`, or explicitly `unsupported`, within
-the printed theorem statements and model scopes. Existing partial coverage and
-ISA/compiler/runtime/allocation/IEEE boundaries remain visible. Success means
-prototype acceptance with declared gaps, not complete formal verification.
+Temporary `sorry` may be written directly in ordinary proof files during
+development. There is no separate prototype Lean library, assumption registry
+or alternative-proof map. Strict acceptance rejects any outstanding holes;
+named verification rejects a selected theorem if its actual transitive
+dependencies contain `sorryAx` or other extra unproved assumptions.
+Metadata tooling lives in `scripts/proof_audit.lean` and is elaborated in a
+temporary Lean file, without adding axioms or a project library.
 
-`instructions.toml` records each accepted opcode spelling, canonical alias,
-operand probe, fixed profile, semantics source, regression and limitations.
-Acceptance checks every entry against the parser dispatch, runs actual positive
-translations and unknown-qualifier rejections, and elaborates all generated
-checked programs with Lean. These checks establish frontend acceptance and
-generated typing only. The report records 73 spellings / 72 canonical local
-forms; this count is not comparable to the paper's 81-form convention. Each
-local form's paper correspondence remains explicitly unconfirmed until an
-enumerated opcode/qualifier artifact is available. Neither a group count nor
-the difference between counts is treated as an implemented or missing form.
-
-Temporary gaps must be named proposition axioms in
-`lean/PtxPrototype/Assumptions.lean`, under `PtxPrototype.Assumptions`. Strict
-`Ptx` sources cannot import this library. Alternative proofs belong in
-`PtxPrototype` modules imported by `lean/PtxPrototype.lean`. Use the manifest's
-`overrides` map from each original reference theorem to its alternative proof;
-Lean checks that their VC types match. Top-level VCs must remain theorems.
-
-After declaring an auxiliary statement, obtain its checked registration data:
-
-```sh
-python3 scripts/check_prototype.py --describe-assumption PtxPrototype.Assumptions.example
-```
-
-Replace the empty `assumptions = []` with `[[assumptions]]` entries before
-`[capability_claims]`. Each entry needs `name`, `role`, `statement`, `type_sha256`,
-`purpose`, `review`, `affected_vcs`, and `discharge_task`. Roles cover arithmetic,
-indexing, collections, encoding and local semantic interfaces. Copy the exact
-checked statement/fingerprint. Impact lists use original reference VC names and
-must match actual transitive dependencies, including capability claims. An
-unused registered assumption has an empty impact list. The description command
-supplies metadata only, not an acceptance verdict.
-
-Anonymous `sorry`/`admit`, unregistered extra axioms, changed statements, stale
-impact lists, and direct or definition/structure wrappers around protected VCs
-are rejected. Auxiliary types cannot assume fixed generated programs or the
-registered correctness/safety/non-vacuity obligations. These are structural
-guards: arbitrary semantic equivalence and axiom consistency are not decided
-automatically. The required `review` must explain why each statement is a local
-auxiliary lemma rather than a disguised VC. Conditional results stay conditional
-until assumptions are discharged; GPU tests do not discharge them. Prototype
-configuration never expands the strict axiom allowlist.
+`instructions.toml` records accepted opcode spellings, aliases, operand probes,
+semantics sources and limitations. Acceptance checks every entry against the
+parser, actual positive/negative translations and generated Lean typing.
+The 73 local spellings / 72 canonical forms do not establish correspondence
+with the paper's 81 forms. Existing partial coverage and ISA/compiler/runtime/
+allocation/IEEE boundaries remain unchanged.
 
 Shuffle extension: all four fixed `shfl.sync.*.b32` modes have checked program
 data and source execution, separate participation/source/value/predicate rules,

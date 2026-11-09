@@ -12,7 +12,7 @@ static int configure(vi_model *model, const vi_json *j, vi_diagnostic e)
     const vi_model_implementation *selected = model->implementation;
     int ok = 0;
     c->architecture = selected->id;
-#define SIZE_FIELD(name, field) do { if (!vi_json_integer(j, vi_json_member(j, 0, name), &c->field) || c->field == 0 || c->field > INT_MAX) { vi_model_problem(e, "invalid config field %s", name); goto done; } } while (0)
+#define SIZE_FIELD(name, field) do { if (!vi_json_integer(j, vi_json_member(j, 0, name), &c->field) || c->field == 0 || c->field > INT_MAX) { vi_model_problem_string(e, "invalid config field ", name); goto done; } } while (0)
     SIZE_FIELD("vocab_size", vocab_size);
     SIZE_FIELD("hidden_size", hidden_size);
     SIZE_FIELD("intermediate_size", intermediate_size);
@@ -68,25 +68,35 @@ invalid:
 done:
     return ok;
 }
-static const float *tensor(vi_model *m, const char *name, size_t rows, size_t cols, vi_diagnostic e)
+static const float *tensor(vi_model *m, const char *name, size_t rows, size_t cols, const vi_diagnostic *e)
 {
     for (size_t i = 0; i < m->tensor_count; ++i) {
         vi_loaded_tensor *t = &m->tensors[i];
         if (strcmp(t->name, name) != 0) continue;
         if (t->rows != rows || t->cols != cols) {
-            vi_model_problem(e, "wrong shape for %s: expected [%zu,%zu], got [%zu,%zu]", name, rows, cols, t->rows, t->cols);
+            vi_model_problem_shape(*e, name, rows, cols, t->rows, t->cols);
             return NULL;
         }
         t->used = true;
         return t->data;
     }
-    vi_model_problem(e, "missing tensor: %s", name);
+    vi_model_problem_string(*e, "missing tensor: ", name);
     return NULL;
+}
+static int bind_layer_tensor(vi_model *m, char *buffer, size_t layer,
+                             const char *suffix, size_t rows, size_t cols,
+                             const float **slot, const vi_diagnostic *e)
+{
+    char *name = buffer + 1;
+    vi_model_layer_name(name, layer, suffix);
+    const float *data = tensor(m, name, rows, cols, e);
+    *slot = data;
+    return *slot != NULL;
 }
 static int bind_weights(vi_model *m, vi_diagnostic e)
 {
     vi_llama_weights *weights = calloc(1, sizeof(*weights));
-    if (weights == NULL) return vi_model_problem(e, "weight view allocation failed");
+    if (weights == NULL) { int result = vi_model_problem(e, "weight view allocation failed"); return result; }
     m->weights = weights;
     weights->config = m->config;
     weights->ops = m->ops;
@@ -94,28 +104,30 @@ static int bind_weights(vi_model *m, vi_diagnostic e)
     size_t d = c->hidden_size, f = c->intermediate_size;
     size_t q = c->num_heads * c->head_dim, kv = c->num_kv_heads * c->head_dim;
     weights->layers = calloc(c->num_layers, sizeof(*weights->layers));
-    if (weights->layers == NULL) return vi_model_problem(e, "layer allocation failed");
-    weights->embedding = tensor(m, "model.embed_tokens.weight", c->vocab_size, d, e);
-    weights->output_norm = tensor(m, "model.norm.weight", d, 1, e);
+    if (weights->layers == NULL) { int result = vi_model_problem(e, "layer allocation failed"); return result; }
+    weights->embedding = tensor(m, "model.embed_tokens.weight", c->vocab_size, d, &e);
+    weights->output_norm = tensor(m, "model.norm.weight", d, 1, &e);
     if (weights->embedding == NULL || weights->output_norm == NULL) return 0;
-    weights->lm_head = c->tie_embeddings ? weights->embedding : tensor(m, "lm_head.weight", c->vocab_size, d, e);
+    weights->lm_head = c->tie_embeddings ? weights->embedding : tensor(m, "lm_head.weight", c->vocab_size, d, &e);
     if (weights->lm_head == NULL) return 0;
     if (c->tie_embeddings) {
         for (size_t i = 0; i < m->tensor_count; ++i) {
             vi_loaded_tensor *t = &m->tensors[i];
-            if (strcmp(t->name, "lm_head.weight") == 0) {
+            int head_name_order = strcmp(t->name, "lm_head.weight");
+            if (head_name_order == 0) {
                 if (t->rows != c->vocab_size || t->cols != d ||
                     (m->device == VI_DEVICE_CPU &&
                      memcmp(t->data, weights->embedding, c->vocab_size * d * sizeof(float)) != 0))
-                    return vi_model_problem(e, "tied LM head differs from embedding");
+                    { int result = vi_model_problem(e, "tied LM head differs from embedding"); return result; }
                 t->used = true;
             }
         }
     }
     for (size_t i = 0; i < c->num_layers; ++i) {
         vi_layer_weights *w = &weights->layers[i];
-        char name[192];
-#define BIND(field, suffix, rows, cols) do { snprintf(name, sizeof(name), "model.layers.%zu.%s", i, suffix); w->field = tensor(m, name, rows, cols, e); if (w->field == NULL) return 0; } while (0)
+        /* Byte zero is reserved; the helper uses the next 192 bytes. */
+        char name[193];
+#define BIND(field, suffix, rows, cols) do { int bound = bind_layer_tensor(m, name, i, suffix, rows, cols, &w->field, &e); if (!bound) return 0; } while (0)
         BIND(input_norm, "input_layernorm.weight", d, 1);
         BIND(q, "self_attn.q_proj.weight", q, d);
         BIND(k, "self_attn.k_proj.weight", kv, d);
@@ -134,7 +146,7 @@ static int bind_weights(vi_model *m, vi_diagnostic e)
 #undef BIND
     }
     for (size_t i = 0; i < m->tensor_count; ++i)
-        if (!m->tensors[i].used) return vi_model_problem(e, "unrecognized/unused tensor: %s", m->tensors[i].name);
+        if (!m->tensors[i].used) { int result = vi_model_problem_string(e, "unrecognized/unused tensor: ", m->tensors[i].name); return result; }
     return 1;
 }
 static void free_weights(void *opaque)

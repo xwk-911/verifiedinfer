@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "timestamp_utc": "2026-11-08T05:23:54.524377+00:00",
+  "timestamp_utc": "2026-11-08T12:06:43.111065+00:00",
   "status": "prototype-passed-with-gaps",
   "verdict_scope": "Prototype acceptance of registered model-relative VCs; not complete formal verification or hardware IEEE equivalence",
   "cases": [
@@ -260,22 +260,18 @@
       "coverage_status": "partial"
     }
   ],
-  "assumptions": [],
   "gpu": {
-    "status": "passed",
-    "report": "/home/kevinx/verifiedinfer/tools/ptx-verify/docs/prototype-evidence.gpu.json",
-    "timestamp_utc": "2026-11-08T05:26:29.190242+00:00",
-    "cases": 47,
-    "scope": "finite GPU execution; exact bytes without float tolerance; separate from formal proofs"
+    "status": "not_run",
+    "reason": "Explicit --gpu off; no new hardware evidence"
   },
   "strict_gate": {
     "status": "passed",
     "log": "/home/kevinx/verifiedinfer/tools/ptx-verify/docs/prototype-evidence.strict.log",
-    "sha256": "cd1480e6bf87d0917d762f6622b845de0bfd982b1ecdf752643ec58df2d6bf0d"
+    "sha256": "4280de8d4d2b99fa4d378fc36f3288666eb79b9ac0eb2a1b3b1e30c4a7b0569e"
   },
   "assembly": {
     "status": "passed",
-    "timestamp_utc": "2026-11-08T05:26:16.501099+00:00",
+    "timestamp_utc": "2026-11-08T12:15:21.320973+00:00",
     "fixtures": 37
   },
   "capabilities": [
@@ -3079,12 +3075,12 @@
     "note": "No unsupported paper form is counted as implemented"
   },
   "source_fingerprint": {
-    "sha256": "4e45a29256b49fed8027faf3c292aefbd98aa73ccaa1b9af462432a938317f08",
-    "file_count": 1041
+    "sha256": "9b737debf2a72f4681f1463b8fd3f8288fa5ff7d0a28fdf4b02f774ac0a7143b",
+    "file_count": 1039
   },
   "limits": [
-    "Strict/conditional labels apply only to the listed theorem statements and declared scopes",
-    "Structural guards cannot decide arbitrary semantic equivalence or consistency of all auxiliary assumptions; statement review remains required",
+    "Strict proof labels apply only to the listed theorem statements and declared scopes",
+    "Temporary sorry and extra unproved assumptions cannot pass strict acceptance",
     "Prototype acceptance does not close compiler/runtime/allocation, full PTX ISA or universal IEEE/logits/token correspondence"
   ]
 }

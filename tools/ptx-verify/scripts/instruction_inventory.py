@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 import tomllib
 
-from prototype_audit import AuditError, LEAN, ROOT
+from proof_audit import AuditError, LEAN, ROOT
 
 
 def parser_spellings(source):

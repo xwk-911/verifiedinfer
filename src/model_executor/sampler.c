@@ -21,9 +21,7 @@ vi_status vi_sample_greedy(const float *logits, size_t vocab_size,
             best = candidate;
         }
     }
-    *result = (vi_sample_result){
-        .token = (vi_token)best,
-        .next_state = (uint32_t)(UINT64_C(1664525) * state + UINT64_C(1013904223))
-    };
+    result->token = (vi_token)best;
+    result->next_state = (uint32_t)(UINT64_C(1664525) * state + UINT64_C(1013904223));
     return VI_OK;
 }

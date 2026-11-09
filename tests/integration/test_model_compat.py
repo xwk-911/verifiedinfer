@@ -8,6 +8,7 @@ import argparse
 import copy
 import itertools
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -17,6 +18,51 @@ import numpy as np
 from safetensors.numpy import load_file, save_file
 import torch
 from transformers import LlamaConfig, LlamaForCausalLM, Qwen2Config, Qwen2ForCausalLM
+
+
+def check_ptx_loading(binary, model_path, input_path, expected):
+    """Exercise runtime file lookup with a relocated executable and another cwd."""
+    with tempfile.TemporaryDirectory(prefix="vi-ptx-") as directory:
+        root = Path(directory)
+        bundle = root / "bundle with spaces"
+        (bundle / "ptx").mkdir(parents=True)
+        relocated = bundle / "vi-run"
+        shutil.copy2(binary, relocated)
+        module = bundle / "ptx/model_ops_cuda.ptx"
+        original = binary.parent / "ptx/model_ops_cuda.ptx"
+        shutil.copy2(original, module)
+        logits = root / "logits.bin"
+        command = [str(relocated), "--model", str(model_path), "--device", "cuda",
+                   "--input", str(input_path), "--forward-only", "--logits", str(logits)]
+
+        def run(path=None, error=None):
+            env = os.environ.copy()
+            env.pop("VI_PTX_PATH", None)
+            if path is not None:
+                env["VI_PTX_PATH"] = str(path)
+            p = subprocess.run(command, cwd=root, env=env, text=True, capture_output=True)
+            if error is not None:
+                assert p.returncode == 1 and error in p.stderr, (p.returncode, p.stderr)
+            else:
+                assert p.returncode == 0, p.stderr
+                assert logits.read_bytes() == expected, "PTX loading changed logits"
+
+        run()  # Executable-relative lookup, including a path containing spaces.
+        module.unlink()
+        run(error=str(module))  # Missing default file must fail.
+        run(original)  # An absolute override also works without the default file.
+        shutil.copy2(original, root / "custom.ptx")
+        run("custom.ptx")  # Explicit relative paths use the working directory.
+        shutil.copy2(original, module)
+        run(root / "missing.ptx", error="cannot load PTX module")
+        invalid = root / "invalid.ptx"
+        invalid.write_text("This is not PTX.\n")
+        run(invalid, error="cannot load PTX module")
+        incomplete = root / "incomplete.ptx"
+        incomplete.write_text(".version 8.7\n.target sm_80\n.address_size 64\n"
+                              ".visible .entry vi_add() { ret; }\n")
+        run(incomplete, error="missing kernel 'vi_norm'")
+    print("PASS: 7 external PTX loading checks, including exact logits and failure paths")
 
 
 def main():
@@ -66,6 +112,8 @@ def main():
             model.save_pretrained(model_path, max_shard_size="2KB" if name == "qwen2" else "5GB")
             # A non-contiguous physical layout (shards) must not change the model.
             actual = invoke(model_path)
+            if args.device == "cuda" and name == "llama-tied":
+                check_ptx_loading(binary, model_path, input_path, actual.tobytes())
             with torch.inference_mode():
                 reference = model(torch.tensor([ids]), use_cache=False).logits[0, -1].numpy()
             error = float(np.max(np.abs(actual - reference)))

@@ -39,7 +39,9 @@ For the Copy example, the repository already contains a specification and proofs
 The first argument is the Lean proof module; remaining arguments name the
 proof theorems to check. This step builds that module, checks the selected proofs
 and their transitive axiom dependencies, and prints the proved statements.
-Unproved assumptions, including `sorry`, fail this strict check. It does not
+Temporary `sorry` is allowed in ordinary proof files during development;
+any selected theorem that depends on it, including through a helper lemma, fails
+verification as unfinished. It does not
 translate PTX again, run other cases, or execute GPU tests.
 
 For a new kernel, use your own PTX/generated module in step 1. Before step 2,

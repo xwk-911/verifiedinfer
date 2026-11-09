@@ -1,10 +1,7 @@
 schema_version = 1
-imports = ["PtxPrototype"]
-overrides = {}
 
-# Empty initially. New entries need name, role, exact Lean statement/type_sha256,
-# purpose, review, affected_vcs and discharge_task. See README.md, Prototype acceptance.
-assumptions = []
+# Fixed kernel and capability claims checked by strict prototype acceptance.
+# Temporary sorry belongs in ordinary proof files and cannot pass acceptance.
 
 [capability_claims]
 legacy-operational-subset = ["Ptx.CopyEvent.completed_output_agreement"]

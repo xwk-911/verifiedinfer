@@ -5,7 +5,7 @@ import argparse
 import subprocess
 import sys
 
-from prototype_audit import AuditError, BASE_AXIOMS, LEAN, lean_metadata, valid_name
+from proof_audit import AuditError, BASE_AXIOMS, LEAN, lean_metadata, valid_name
 
 
 def check_theorems(declarations, names):
@@ -25,7 +25,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         print(f"Checking {args.module}", flush=True)
-        build = subprocess.run(["lake", "build", args.module, "PtxPrototype.Audit"], cwd=LEAN,
+        build = subprocess.run(["lake", "build", args.module], cwd=LEAN,
                                text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if build.returncode:
             sys.stderr.write(build.stdout)
